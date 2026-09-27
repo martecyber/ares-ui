@@ -1,66 +1,65 @@
 # ares-ui
 
-SPA Vue 3 del panel Ares. Cross-org view: permite gestionar todas las client organizations dentro de la instancia MSSP.
+Vue 3 SPA for the Ares panel. Cross-org view: manages every client organization within one MSSP
+instance.
 
 ## Stack
 
 - Vue 3 + TypeScript + Vite 5
 - vue-router 4
 - Pinia 2
-- PrimeVue 4 (tema Aura) + PrimeIcons
+- PrimeVue 4 (Aura theme) + PrimeIcons
 - Tailwind CSS 4
-- axios (+ interceptor JWT)
-- vee-validate + zod (formularios)
-- Vue I18n (español / inglés)
+- axios (+ JWT interceptor)
+- vee-validate + zod (forms)
+- Vue I18n (Spanish / English)
 
 ## Scripts
 
 ```bash
-pnpm install        # desde la raíz del monorepo
-pnpm dev            # arranca en http://localhost:5173, proxy /api → :8888
-pnpm build          # output en dist/
-pnpm preview        # sirve dist/
+pnpm install
+pnpm dev            # http://localhost:5173, proxies /api → :8888
+pnpm build          # output in dist/
+pnpm preview        # serves dist/
 pnpm test           # vitest
 pnpm type-check     # vue-tsc --noEmit
 pnpm lint           # eslint
 ```
 
-## Configuración
+## Configuration
 
-`.env` (copiar de `.env.example`):
+`.env` (copy from `.env.example`):
 
 ```
 VITE_API_BASE=http://localhost:8888
 VITE_APP_NAME=Ares MSSP
 ```
 
-Vite hace proxy de `/api/**` al backend, de modo que el código llama a rutas relativas.
+Vite proxies `/api/**` to the backend, so the app calls relative paths.
 
-## Estructura
+## Structure
 
 ```
 src/
 ├── main.ts              Bootstrap Vue + Pinia + PrimeVue + router
-├── App.vue              Shell raíz (sólo <RouterView /> + Toast)
-├── router/              Definición de rutas + guard de auth
+├── App.vue              Root shell (just <RouterView /> + Toast)
+├── router/              Route definitions + auth guard
 ├── stores/              Pinia (auth, orgs, engagements…)
-├── api/                 Cliente axios + endpoints tipados
-├── views/               Vistas por ruta (lazy-loaded)
-├── components/          Componentes locales
+├── api/                 Axios client + typed endpoints
+├── views/               Route views (lazy-loaded)
+├── components/          Local components
 ├── layouts/             AppShell, sidebars, top-bars
-└── assets/              CSS global, imágenes
+└── assets/              Global CSS, images
 ```
 
-## Rutas principales
+## Main routes
 
-Ver [`../docs/UI_DESIGN.md`](../docs/UI_DESIGN.md) para el mapa completo de navegación.
-
-| Ruta | Propósito |
+| Route | Purpose |
 |---|---|
 | `/login` | Login |
-| `/dashboard` | KPIs cross-org |
+| `/dashboard` | Cross-org KPIs |
 | `/clients` | Client orgs |
-| `/engagements` | Engagements cross-org |
+| `/engagements` | Cross-org engagements |
 | `/findings` | Triage queue |
 | `/assets` | Asset explorer |
 | `/kb` | Knowledge base |
