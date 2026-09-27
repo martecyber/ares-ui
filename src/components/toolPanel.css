@@ -1,0 +1,79 @@
+/* Shared visual shell for the per-tool config panels (Naabu/Masscan/httpx/Subfinder/dnsx).
+   Same look as the inline styles in NmapConfigPanel and NucleiConfigPanel. */
+
+.tool-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--p-primary-500) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--p-primary-500) 22%, transparent);
+  border-radius: var(--ares-radius);
+}
+.row.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+.row.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.6rem;
+}
+.ares-field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ares-text-muted);
+  margin-bottom: 0.35rem;
+}
+.dim { opacity: 0.6; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.chips.compact .chip { padding: 0.2rem 0.5rem; font-size: 0.72rem; }
+.chip {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  background: var(--ares-surface-2);
+  color: var(--ares-text-2);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.chip:hover { border-color: var(--p-primary-400); }
+.chip--active {
+  background: var(--p-primary-color);
+  color: #fff;
+  border-color: var(--p-primary-color);
+}
+
+.ares-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--ares-text-2);
+  cursor: pointer;
+  user-select: none;
+}
+.ares-checkbox input { accent-color: var(--p-primary-color); }
+
+.advanced summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--ares-text-muted);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}

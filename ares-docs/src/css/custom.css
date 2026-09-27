@@ -1,0 +1,30 @@
+/**
+ * Ares ASM brand colors — same accent used by ares-ui itself (see
+ * ares-ui/src/assets/main.css's --ares-accent / --ares-accent-bg: deep purple #4141a2 in light
+ * mode, lavender #b8b3d8 in dark mode), so the docs site reads as the same product rather than a
+ * generic Docusaurus default. Shade steps below are derived from those two base colors, Infima
+ * just needs the full 7-step scale it expects.
+ */
+:root {
+  --ifm-color-primary: #4141a2;
+  --ifm-color-primary-dark: #393991;
+  --ifm-color-primary-darker: #363689;
+  --ifm-color-primary-darkest: #2d2d71;
+  --ifm-color-primary-light: #4949b3;
+  --ifm-color-primary-lighter: #5050ba;
+  --ifm-color-primary-lightest: #6a6ac7;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #b8b3d8;
+  --ifm-color-primary-dark: #a29cc9;
+  --ifm-color-primary-darker: #9791c0;
+  --ifm-color-primary-darkest: #7d76ab;
+  --ifm-color-primary-light: #cec9e7;
+  --ifm-color-primary-lighter: #d4d0ea;
+  --ifm-color-primary-lightest: #e6e3f2;
+  --ifm-background-color: #1e1e2e;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}

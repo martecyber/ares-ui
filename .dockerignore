@@ -1,0 +1,11 @@
+# Shared by both Dockerfiles in this repo now that they use the same root context:
+# Dockerfile.multistage needs src/, public/, *.config.* etc. as build INPUT; Dockerfile (the
+# artifact-based one) needs dist/ as build input instead — so neither of those can be excluded
+# here. Only exclude what genuinely never matters to either.
+.git/
+node_modules/
+ares-docs/node_modules/
+ares-docs/build/
+ares-docs/.docusaurus/
+*.md
+.env*

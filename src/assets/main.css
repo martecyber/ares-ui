@@ -1,0 +1,1911 @@
+@import 'tailwindcss';
+
+/* ===================================================================
+   Ares Design Tokens — matches the original ares/ CSS palette
+   The base :root values are the DARK theme (also the default). The light
+   theme overrides come below, gated by [data-theme="light"]. Keep the
+   variable names identical across themes — every component reads from
+   them, so theming "just works" by swapping the values at the root.
+   =================================================================== */
+:root {
+  --ares-bg:           #1e1e2e;
+  --ares-surface:      #2a2a3e;
+  --ares-surface-2:    #363650;
+  --ares-border:       #3d3d5c;
+  --ares-accent:       #b8b3d8;
+  --ares-accent-bg:    #4141a2;
+  --ares-accent-hover: #4e4eba;
+  --ares-accent-muted: #7a75a3;
+  --ares-text:         #f0efec;
+  --ares-text-2:       #d5d0e4;
+  --ares-text-muted:   #9ca5b1;
+
+  --ares-success: #2ecc71;
+  --ares-warning: #f39c12;
+  --ares-error:   #e74c3c;
+  --ares-info:    #5dade2;
+
+  /* EXPERIMENTAL: squared-off aesthetic to match the ARES logo's angular mark — was 6px.
+     Revert this one line (+ the primitive.borderRadius override in main.ts) to go back. */
+  --ares-radius: 0px;
+  --ares-transition: 0.2s ease;
+
+  /* Layout tokens — referenced by the mobile shell rules below. */
+  --ares-sidebar-width: 210px;
+  --ares-sidebar-collapsed: 56px;
+  --ares-topbar-height: 56px;
+
+  /* Semantic aliases used in components */
+  --ares-surface-raised:  #363650;
+  --ares-surface-sunken:  #18182a;
+  --ares-text-1:          #f0efec;
+
+  /* PrimeVue surface tokens — components read these (e.g. tool-panel chips
+     use var(--p-surface-800)). Aura sets them per colorScheme so they flip
+     automatically; we still publish a couple of overrides for the cases
+     where our CSS references them directly. */
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  /* Light-mode palette. Keeps the purple/blue accent identical so brand
+     stays recognizable; flips surfaces/borders/text. */
+  --ares-bg:           #f5f5f9;
+  --ares-surface:      #ffffff;
+  --ares-surface-2:    #eef0f6;
+  --ares-border:       #d8dce6;
+  --ares-accent:       #4141a2;  /* primary used for titles & accents */
+  --ares-accent-bg:    #4141a2;
+  --ares-accent-hover: #2a3d6b;
+  --ares-accent-muted: #7a75a3;
+  --ares-text:         #1e1e2e;
+  --ares-text-2:       #363650;
+  --ares-text-muted:   #6b7280;
+
+  --ares-surface-raised:  #ffffff;
+  --ares-surface-sunken:  #e9ebf2;
+  --ares-text-1:          #1e1e2e;
+
+  color-scheme: light;
+}
+
+/* ===================================================================
+   Base
+   =================================================================== */
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif;
+  font-optical-sizing: auto;
+  background-color: var(--ares-bg);
+  color: var(--ares-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ===================================================================
+   Top Navbar
+   =================================================================== */
+.ares-navbar {
+  height: 56px;
+  background-color: var(--ares-surface);
+  border-bottom: 1px solid var(--ares-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  flex-shrink: 0;
+  position: relative;
+  font-family: 'Roboto Flex', sans-serif;
+}
+
+.ares-navbar-brand {
+  /* An <img> now (see AppShell.vue's navbarLogo), swapped between the wordmark's
+     light-purple and dark-purple SVG variants to match how --ares-accent itself used
+     to resolve here (deep #4141a2 in light mode, lavender #b8b3d8 in dark mode) — so
+     the mark still reads as "Ares purple" in both themes. */
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
+/* Small "still in beta" pill shown next to every rendering of the Ares logo/wordmark
+   (navbar brand, login page's brand + mobile form panels) — never on its own. */
+.ares-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.2em 0.55em;
+  border-radius: 999px;
+  background: var(--p-primary-500);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.ares-navbar-sub {
+  font-size: 0.75rem;
+  color: var(--ares-text-muted);
+  margin-left: 0.5rem;
+  font-weight: 400;
+}
+
+.ares-navbar-end {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* User avatar button */
+.ares-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  color: var(--ares-text-2);
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: background var(--ares-transition), border-color var(--ares-transition);
+}
+
+.ares-user-btn:hover {
+  background: var(--ares-surface-2);
+  border-color: var(--ares-accent-muted);
+  color: var(--ares-text);
+}
+
+.ares-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ares-accent-bg);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Generic navbar icon button — theme toggle today, same square-icon shape the old jobs badge
+   button used before that feature was removed. */
+.ares-jobs-badge-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  color: var(--ares-text-muted);
+  cursor: pointer;
+  transition: background var(--ares-transition), border-color var(--ares-transition), color var(--ares-transition);
+}
+
+.ares-jobs-badge-btn:hover {
+  background: var(--ares-surface-2);
+  border-color: var(--ares-accent-muted);
+  color: var(--ares-text);
+}
+
+/* ===================================================================
+   Topbar navigation links
+   =================================================================== */
+.ares-topnav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ares-topnav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--ares-radius);
+  color: var(--ares-text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 400;
+  transition: background var(--ares-transition), color var(--ares-transition);
+  white-space: nowrap;
+}
+
+.ares-topnav-link i {
+  font-size: 0.85rem;
+}
+
+.ares-topnav-link:hover {
+  background: var(--ares-surface-2);
+  color: var(--ares-text);
+}
+
+.ares-topnav-link.router-link-active,
+.ares-topnav-link.ares-topnav-link--active {
+  background: var(--ares-accent-bg);
+  color: #fff;
+  font-weight: 500;
+}
+
+.ares-topnav-dropdown {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ares-topnav-chevron {
+  font-size: 0.6rem !important;
+  opacity: 0.65;
+  margin-left: 0.1rem;
+}
+
+/* ===================================================================
+   Sidebar
+   =================================================================== */
+.ares-sidebar {
+  width: 210px;
+  background-color: var(--ares-surface);
+  border-right: 1px solid var(--ares-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+  transition: width 0.25s ease;
+  overflow: hidden;
+}
+
+.ares-sidebar.collapsed {
+  width: 56px;
+}
+
+/* Toggle button */
+.ares-sidebar-toggle {
+  position: absolute;
+  top: 14px;
+  right: -11px;
+  width: 22px;
+  height: 22px;
+  background: var(--ares-surface);
+  border: 1px solid var(--ares-border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  color: var(--ares-text-muted);
+  font-size: 0.6rem;
+  transition: background var(--ares-transition), color var(--ares-transition), border-color var(--ares-transition);
+}
+
+.ares-sidebar-toggle:hover {
+  background: var(--ares-accent-bg);
+  border-color: var(--ares-accent-bg);
+  color: #fff;
+}
+
+/* Nav links */
+.ares-nav {
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Sidebar can grow taller than the viewport as admin features pile up — let the
+     nav scroll independently. `min-height: 0` is what allows a flex child to
+     actually shrink below its content size and engage `overflow-y`. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ares-nav-section {
+  padding: 0.75rem 0.75rem 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ares-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ares-sidebar.collapsed .ares-nav-section {
+  opacity: 0;
+  height: 0;
+  padding: 0;
+}
+
+.ares-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ares-radius);
+  color: var(--ares-text-2);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background var(--ares-transition), color var(--ares-transition);
+  position: relative;
+}
+
+.ares-nav-link:hover {
+  background: var(--ares-surface-2);
+  color: var(--ares-text);
+}
+
+.ares-nav-link.router-link-active,
+.ares-nav-link.active {
+  background: var(--ares-accent-bg);
+  color: #fff;
+  font-weight: 500;
+}
+
+.ares-nav-link--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ares-nav-link i {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.1rem;
+  text-align: center;
+}
+
+.ares-nav-label {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.ares-sidebar.collapsed .ares-nav-label {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Tooltip when collapsed */
+.ares-sidebar.collapsed .ares-nav-link {
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.ares-sidebar.collapsed .ares-nav-link::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--ares-surface-2);
+  color: var(--ares-text);
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 100;
+}
+
+.ares-sidebar.collapsed .ares-nav-link:hover::after {
+  opacity: 1;
+}
+
+/* Sidebar divider */
+.ares-sidebar-divider {
+  height: 1px;
+  background: var(--ares-border);
+  margin: 0.5rem 0.75rem;
+}
+
+/* ===================================================================
+   Org switcher (topbar dropdown)
+   =================================================================== */
+.ares-org-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: color-mix(in srgb, var(--ares-accent-bg) 18%, var(--ares-surface));
+  border: 1px solid color-mix(in srgb, var(--ares-accent-bg) 60%, var(--ares-border));
+  border-radius: var(--ares-radius);
+  color: var(--ares-text);
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-family: inherit;
+  font-weight: 500;
+  max-width: 220px;
+  transition: background var(--ares-transition), border-color var(--ares-transition);
+}
+
+.ares-org-switcher-btn:hover {
+  background: color-mix(in srgb, var(--ares-accent-bg) 30%, var(--ares-surface));
+  border-color: var(--ares-accent-hover);
+}
+
+.ares-org-switcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.ares-project-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: color-mix(in srgb, var(--ares-accent-bg) 18%, var(--ares-surface));
+  border: 1px solid color-mix(in srgb, var(--ares-accent-bg) 60%, var(--ares-border));
+  border-radius: var(--ares-radius);
+  color: var(--ares-text);
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-family: inherit;
+  font-weight: 500;
+  max-width: 220px;
+  transition: background var(--ares-transition), border-color var(--ares-transition);
+}
+
+.ares-project-switcher-btn:hover {
+  background: color-mix(in srgb, var(--ares-accent-bg) 30%, var(--ares-surface));
+  border-color: var(--ares-accent-hover);
+}
+
+/* Locked = no org context to pick a project from yet (e.g. the platform level) */
+.ares-project-switcher-btn--locked,
+.ares-project-switcher-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: var(--ares-surface);
+  border-color: var(--ares-border);
+}
+.ares-project-switcher-btn--locked:hover,
+.ares-project-switcher-btn:disabled:hover {
+  background: var(--ares-surface);
+  border-color: var(--ares-border);
+}
+
+.ares-project-switcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+/* Popover panel */
+.ares-org-popover {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ares-org-popover-search {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--ares-border);
+}
+
+.ares-org-popover-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.35rem 0;
+}
+
+.ares-org-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--ares-transition);
+}
+
+.ares-org-option:hover {
+  background: var(--ares-surface-2);
+}
+
+.ares-org-option--active {
+  background: color-mix(in srgb, var(--ares-accent-bg) 20%, transparent);
+}
+
+.ares-org-option--active .ares-org-option-name {
+  color: var(--ares-accent);
+}
+
+.ares-org-option-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ares-text);
+}
+
+.ares-org-option-slug {
+  font-size: 0.72rem;
+  color: var(--ares-text-muted);
+}
+
+.ares-org-popover-empty {
+  padding: 1.25rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--ares-text-muted);
+}
+
+/* PrimeVue Popover dark override */
+.p-popover {
+  background: var(--ares-surface) !important;
+  border: 1px solid var(--ares-border) !important;
+  color: var(--ares-text) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+
+[data-theme="light"] .p-popover,
+[data-theme="light"] .p-datepicker-panel,
+[data-theme="light"] .p-select-overlay,
+[data-theme="light"] .p-multiselect-overlay {
+  /* Hard shadows look harsh on a light backdrop — soften them. */
+  box-shadow: 0 8px 24px rgba(30, 30, 46, 0.12) !important;
+}
+
+.p-popover::before,
+.p-popover::after {
+  display: none !important;
+}
+
+/* ===================================================================
+   Topbar org context indicator
+   =================================================================== */
+.ares-topbar-org {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: color-mix(in srgb, var(--ares-accent-bg) 20%, var(--ares-surface));
+  border: 1px solid var(--ares-accent-bg);
+  border-radius: var(--ares-radius);
+  padding: 0.28rem 0.6rem 0.28rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ares-text);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  max-width: 340px;
+}
+
+.ares-topbar-org-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.ares-topbar-org-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ares-accent-muted);
+  cursor: pointer;
+  padding: 0.15rem;
+  border-radius: var(--ares-radius);
+  transition: color var(--ares-transition), background var(--ares-transition);
+  margin-left: 0.15rem;
+}
+
+.ares-topbar-org-link:hover {
+  color: var(--ares-text);
+  background: var(--ares-surface-2);
+}
+
+/* Sidebar section label */
+.ares-sidebar-section-label {
+  padding: 0.9rem 0.75rem 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ares-text-muted);
+}
+
+/* ===================================================================
+   Context indicator (org / engagement)   [DEPRECATED — kept for safety]
+   =================================================================== */
+.ares-context-box {
+  margin: 0.75rem 0.75rem 0.5rem;
+  border-radius: var(--ares-radius);
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--ares-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  transition: border-color var(--ares-transition), background var(--ares-transition);
+}
+
+.ares-context-box--active {
+  background: color-mix(in srgb, var(--ares-accent-bg) 15%, var(--ares-surface));
+  border-color: var(--ares-accent-bg);
+  cursor: pointer;
+}
+
+.ares-context-box--active:hover {
+  background: color-mix(in srgb, var(--ares-accent-bg) 25%, var(--ares-surface));
+  border-color: var(--ares-accent-hover);
+}
+
+.ares-context-box--empty {
+  background: transparent;
+  border-style: dashed;
+  align-items: center;
+  padding: 0.85rem 0.75rem;
+  min-height: 72px;
+  justify-content: center;
+}
+
+.ares-context-section-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ares-accent-muted);
+}
+
+.ares-context-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ares-text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ares-context-divider {
+  height: 1px;
+  background: var(--ares-border);
+  margin: 0.4rem 0;
+}
+
+/* ===================================================================
+   Main content area
+   =================================================================== */
+.ares-page {
+  flex: 1;
+  /* min-width:0 is critical — without it, a wide child (e.g. a 600px-min table
+     inside .ares-table-wrap) forces .ares-page to grow past the viewport, and
+     the inner overflow-x:auto never engages. */
+  min-width: 0;
+  overflow: auto;
+  background: var(--ares-bg);
+}
+
+/* Page header pattern */
+.ares-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.ares-page-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ares-accent);
+  margin: 0;
+}
+
+.ares-page-subtitle {
+  font-size: 0.85rem;
+  color: var(--ares-text-muted);
+  margin-top: 0.15rem;
+}
+
+/* ===================================================================
+   Cards (matching .card-dark from the original)
+   =================================================================== */
+.ares-card {
+  background: var(--ares-surface);
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  padding: 1.25rem;
+}
+
+.ares-card-header {
+  background: var(--ares-surface-2);
+  border-bottom: 1px solid var(--ares-border);
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--ares-radius) var(--ares-radius) 0 0;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* ===================================================================
+   Stat cards (org dashboard)
+   =================================================================== */
+.ares-stat-card {
+  background: var(--ares-surface);
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ares-stat-card--danger {
+  border-color: var(--ares-error);
+  background: color-mix(in srgb, var(--ares-error) 10%, var(--ares-surface));
+}
+
+.ares-stat-card--warn {
+  border-color: var(--ares-warning);
+  background: color-mix(in srgb, var(--ares-warning) 10%, var(--ares-surface));
+}
+
+.ares-stat-label {
+  font-size: 0.75rem;
+  color: var(--ares-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ares-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--ares-accent);
+  line-height: 1;
+}
+
+/* Card with an internal section header (title row + action) */
+.ares-card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--ares-border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ares-text-2);
+}
+
+.ares-card-section-header i {
+  margin-right: 0.35rem;
+  opacity: 0.7;
+}
+
+/* ===================================================================
+   PrimeVue overrides — force dark Ares palette on components
+   =================================================================== */
+
+/* DataTable */
+.p-datatable .p-datatable-header,
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--ares-surface-2) !important;
+  color: var(--ares-text) !important;
+  border-color: var(--ares-border) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  background: var(--ares-surface) !important;
+  color: var(--ares-text-2) !important;
+  border-color: var(--ares-border) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--ares-surface-2) !important;
+  cursor: pointer;
+}
+
+.p-datatable .p-datatable-tbody > tr.p-row-odd {
+  background: color-mix(in srgb, var(--ares-surface) 90%, white 10%) !important;
+}
+
+[data-theme="light"] .p-datatable .p-datatable-tbody > tr.p-row-odd {
+  /* Adding white to white is a no-op — use black for the stripe in light mode. */
+  background: color-mix(in srgb, var(--ares-surface) 94%, black 6%) !important;
+}
+
+/* Dialog
+   --------
+   Cap the dialog height to the viewport and make its content scroll when
+   it overflows — otherwise long forms push the action buttons off-screen
+   with no way to reach them (and no scrollbar appears). Components that
+   want their own internal scroll containers must keep `.p-dialog-content`
+   itself scrollable too: don't override with overflow:hidden. Use overflow
+   on the inner panels instead. */
+.p-dialog {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ares-surface) !important;
+  border: 1px solid var(--ares-border) !important;
+  border-radius: var(--ares-radius) !important;
+  overflow: hidden !important;
+  color: var(--ares-text) !important;
+}
+
+.p-dialog .p-dialog-header {
+  background: var(--ares-surface-2) !important;
+  color: var(--ares-text) !important;
+  border-bottom: 1px solid var(--ares-border) !important;
+  border-radius: 0 !important;
+  padding: 0.75rem 1.25rem !important;
+}
+
+.p-dialog .p-dialog-header .p-dialog-title {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+}
+
+.p-dialog .p-dialog-header .p-dialog-close-button,
+.p-dialog .p-dialog-header .p-dialog-header-icon {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  min-width: 1.5rem !important;
+  padding: 0 !important;
+  font-size: 0.75rem !important;
+  border-radius: var(--ares-radius) !important;
+}
+
+.p-dialog .p-dialog-header .p-dialog-close-button svg,
+.p-dialog .p-dialog-header .p-dialog-header-icon svg {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+}
+
+.p-dialog .p-dialog-content {
+  background: var(--ares-surface) !important;
+  color: var(--ares-text) !important;
+  padding-top: 1.25rem !important;
+  border-radius: 0 !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* InputText */
+.p-inputtext {
+  background: var(--ares-bg) !important;
+  border-color: var(--ares-border) !important;
+  color: var(--ares-text) !important;
+}
+
+.p-inputtext:focus {
+  border-color: var(--ares-accent-bg) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ares-accent-bg) 30%, transparent) !important;
+}
+
+/* Textarea — same dark treatment as InputText (PrimeVue 4 uses a separate class). */
+.p-textarea {
+  background: var(--ares-bg) !important;
+  border-color: var(--ares-border) !important;
+  color: var(--ares-text) !important;
+}
+
+.p-textarea:focus {
+  border-color: var(--ares-accent-bg) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ares-accent-bg) 30%, transparent) !important;
+}
+
+/* Tab panels — PrimeVue 4 Tabs component */
+.p-tabs {
+  background: transparent !important;
+}
+
+.p-tablist {
+  background: var(--ares-surface) !important;
+  border-color: var(--ares-border) !important;
+}
+
+.p-tablist-tab-list {
+  background: var(--ares-surface) !important;
+  border-bottom-color: var(--ares-border) !important;
+}
+
+.p-tab {
+  background: transparent !important;
+  color: var(--ares-text-muted) !important;
+  border-color: transparent !important;
+}
+
+.p-tab:hover {
+  color: var(--ares-text) !important;
+}
+
+.p-tab.p-tab-active {
+  color: var(--ares-accent) !important;
+  border-bottom-color: var(--ares-accent) !important;
+}
+
+.p-tabpanels {
+  background: var(--ares-surface) !important;
+  color: var(--ares-text) !important;
+  border: 1px solid var(--ares-border) !important;
+  border-top: none !important;
+}
+
+.p-tabpanel {
+  background: transparent !important;
+  color: var(--ares-text) !important;
+}
+
+/* Tag overrides */
+.p-tag {
+  font-size: 0.72rem !important;
+  padding: 0.2rem 0.55rem !important;
+  border-radius: var(--ares-radius) !important;
+}
+
+/* Menu popup */
+.p-menu {
+  background: var(--ares-surface) !important;
+  border-color: var(--ares-border) !important;
+  color: var(--ares-text) !important;
+  min-width: 180px !important;
+}
+
+/* PrimeVue's real hover/focus background target is .p-menu-item-content (a wrapper
+   around .p-menu-item-link, with its own rounded "pill" highlight and overflow:hidden
+   per Aura's own component style) — NOT .p-menu-item-link itself. It never had an Ares
+   override, so it was falling back to PrimeVue's unthemed default background/transition
+   duration on hover, producing a white flash with a noticeably longer fade. */
+.p-menu .p-menu-item-content {
+  background: transparent !important;
+  color: var(--ares-text-2) !important;
+  transition: background 0.1s ease, color 0.1s ease !important;
+}
+
+.p-menu .p-menu-item.p-focus .p-menu-item-content,
+.p-menu .p-menu-item:not(.p-disabled) .p-menu-item-content:hover {
+  background: var(--ares-surface-2) !important;
+  color: var(--ares-text) !important;
+}
+
+.p-menu .p-menu-item-link {
+  color: inherit !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.p-menu .p-menu-item-label,
+.p-menu .p-menu-item-icon {
+  color: inherit !important;
+}
+
+.p-menu .p-menu-separator {
+  border-color: var(--ares-border) !important;
+}
+
+/* Topnav dropdown popup — menu section header */
+.p-menu .p-menu-submenu-header {
+  background: var(--ares-surface-2) !important;
+  color: var(--ares-text-muted) !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 0.5rem 0.75rem 0.35rem !important;
+}
+
+/* Message/Toast */
+.p-message {
+  border-radius: var(--ares-radius) !important;
+}
+
+/* Form fields */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-field label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ares-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Info cards (engagement detail strip) */
+.ares-info-card {
+  background: var(--ares-surface);
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ares-info-card-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ares-text-muted);
+}
+
+.ares-info-card-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ares-text);
+}
+
+/* Engagement switcher (topbar) */
+.ares-engagement-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  background: var(--ares-surface);
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  color: var(--ares-text-2);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--ares-transition), border-color var(--ares-transition);
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.ares-engagement-switcher-btn:hover {
+  background: var(--ares-surface-2);
+  border-color: var(--ares-accent-muted);
+  color: var(--ares-text);
+}
+
+.ares-engagement-switcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+/* Inline SVG logo helper used in table cells */
+.inline-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ===================================================================
+   PrimeVue Button — text-variant contrast boost
+   PrimeVue's Aura theme renders text-variant buttons with a very faint
+   default color that blends into dark surfaces. Override to ensure the
+   icons are clearly readable. Danger/severity keep their own colors.
+   =================================================================== */
+.p-button-text {
+  color: var(--ares-text-2) !important;
+  background: none !important;
+}
+.p-button-text:not(:disabled):hover {
+  background: none !important;
+  color: var(--ares-text-1) !important;
+}
+/* danger stays red */
+.p-button-text.p-button-danger {
+  color: color-mix(in srgb, var(--ares-error) 85%, var(--ares-text-muted)) !important;
+}
+.p-button-text.p-button-danger:not(:disabled):hover {
+  background: none !important;
+  color: var(--ares-error) !important;
+}
+/* secondary severity (used on dialog close, toolbar, etc.) */
+.p-button-text.p-button-secondary {
+  color: var(--ares-text-muted) !important;
+}
+.p-button-text.p-button-secondary:not(:disabled):hover {
+  background: none !important;
+  color: var(--ares-text-2) !important;
+}
+/* Light-mode: keep text buttons dark enough against white surfaces */
+[data-theme="light"] .p-button-text {
+  color: var(--ares-text-2) !important;
+}
+[data-theme="light"] .p-button-text:not(:disabled):hover {
+  background: none !important;
+  color: var(--ares-text-1) !important;
+}
+[data-theme="light"] .p-button-text.p-button-secondary {
+  color: var(--ares-text-muted) !important;
+}
+
+/* ===================================================================
+   Ares Table — shared style for all data tables
+   =================================================================== */
+.ares-table-wrap {
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Any element that directly hosts a table scrolls independently when the
+   table content is wider than the container (e.g. an .ares-card with padding:0). */
+:has(> .ares-table) {
+  overflow-x: auto;
+}
+
+.ares-table {
+  min-width: 100%;
+  width: max-content;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.ares-table thead tr {
+  border-bottom: 1px solid var(--ares-border);
+}
+
+.ares-table th {
+  text-align: left;
+  padding: 0.5rem 0.85rem;
+  color: var(--ares-text-muted);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  background: var(--ares-surface);
+}
+
+.ares-table td {
+  padding: 0.55rem 0.85rem;
+  vertical-align: middle;
+  border-bottom: 1px solid color-mix(in srgb, var(--ares-border) 50%, transparent);
+}
+
+.ares-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ares-table tbody tr:nth-child(even) {
+  background: var(--ares-surface);
+}
+
+[data-theme="light"] .ares-table tbody tr:nth-child(even) {
+  /* In light mode --ares-surface == --ares-bg (white-on-white), so use the
+     "sunken" tone for visible striping. */
+  background: var(--ares-surface-sunken);
+}
+
+.ares-table tbody tr:hover {
+  background: var(--ares-surface-2);
+}
+
+.ares-table--clickable tbody tr {
+  cursor: pointer;
+}
+
+.ares-table-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--ares-text-muted);
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
+/* ===================================================================
+   DatePicker dark override
+   =================================================================== */
+.p-datepicker-panel {
+  background: var(--ares-surface) !important;
+  border: 1px solid var(--ares-border) !important;
+  color: var(--ares-text) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important;
+  z-index: 9999 !important;
+}
+
+/* Force all text inside the panel to be readable */
+.p-datepicker-panel *:not(
+  .p-datepicker-day-selected,
+  .p-datepicker-day-selected *,
+  .p-datepicker-today .p-datepicker-day,
+  .p-datepicker-today > .p-datepicker-day
+) {
+  color: var(--ares-text) !important;
+}
+
+.p-datepicker-header {
+  background: var(--ares-surface-2) !important;
+  border-bottom: 1px solid var(--ares-border) !important;
+}
+
+.p-datepicker-prev-button,
+.p-datepicker-next-button {
+  background: transparent !important;
+  border: none !important;
+}
+.p-datepicker-prev-button:hover,
+.p-datepicker-next-button:hover {
+  background: var(--ares-surface-2) !important;
+}
+
+.p-datepicker-day-view,
+.p-datepicker-month-view,
+.p-datepicker-year-view {
+  background: var(--ares-surface) !important;
+}
+
+.p-datepicker-weekday {
+  color: var(--ares-text-muted) !important;
+  font-size: 0.72rem !important;
+}
+
+.p-datepicker-day {
+  border-radius: var(--ares-radius) !important;
+  color: var(--ares-text-2) !important;
+}
+.p-datepicker-day:hover {
+  background: var(--ares-surface-2) !important;
+}
+.p-datepicker-day-selected,
+.p-datepicker-day.p-datepicker-day-selected {
+  background: var(--ares-accent-bg) !important;
+  color: #fff !important;
+}
+.p-datepicker-day-selected *,
+.p-datepicker-day.p-datepicker-day-selected * {
+  color: #fff !important;
+}
+.p-datepicker-today .p-datepicker-day,
+.p-datepicker-today > .p-datepicker-day {
+  background: color-mix(in srgb, var(--ares-accent-bg) 30%, var(--ares-surface)) !important;
+  border: 1px solid var(--ares-accent-muted) !important;
+  color: var(--ares-accent) !important;
+  font-weight: 600 !important;
+}
+.p-datepicker-day-outside-month .p-datepicker-day,
+.p-datepicker-day.p-datepicker-day-other-month {
+  opacity: 0.4;
+}
+
+/* ===================================================================
+   Select / Dropdown dark overrides
+   =================================================================== */
+.p-select,
+.p-multiselect {
+  background: var(--ares-bg) !important;
+  border-color: var(--ares-border) !important;
+}
+
+.p-select .p-select-label,
+.p-select .p-select-label.p-placeholder {
+  color: var(--ares-text) !important;
+}
+.p-select .p-select-label.p-placeholder {
+  color: var(--ares-text-muted) !important;
+}
+
+.p-select-overlay,
+.p-multiselect-overlay {
+  background: var(--ares-surface) !important;
+  border: 1px solid var(--ares-border) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important;
+}
+
+.p-select-list-container,
+.p-select-list {
+  background: var(--ares-surface) !important;
+}
+
+.p-select-option,
+.p-multiselect-option {
+  color: var(--ares-text) !important;
+  border-radius: var(--ares-radius) !important;
+  margin: 1px 4px !important;
+  transition: background 0.1s, color 0.1s !important;
+}
+
+/* MultiSelect renders a real Checkbox per option — Select has no equivalent, so this had no
+   dark-mode treatment until MultiSelect showed up (unstyled white box, invisible border). */
+.p-multiselect-option .p-checkbox-box {
+  border: 1px solid var(--ares-border) !important;
+  background: var(--ares-bg) !important;
+}
+.p-multiselect-option .p-checkbox.p-checkbox-checked .p-checkbox-box {
+  background: var(--ares-accent-bg) !important;
+  /* White border, not accent-on-accent — a checked+selected row is already accent-colored end to
+     end (see .p-multiselect-option-selected above), so the box needs real contrast against that
+     background, not just against the unselected row. */
+  border-color: #fff !important;
+}
+.p-multiselect-option .p-checkbox-icon {
+  color: #fff !important;
+}
+.p-select-option:hover,
+.p-multiselect-option:hover,
+.p-select-option[data-p-focused="true"],
+.p-multiselect-option[data-p-focused="true"] {
+  background: var(--ares-surface-2) !important;
+  color: var(--ares-text) !important;
+}
+.p-select-option.p-select-option-selected,
+.p-multiselect-option.p-multiselect-option-selected {
+  background: var(--ares-accent-bg) !important;
+  color: #fff !important;
+}
+/* Keyboard/mouse "focused" index can outlive the pointer leaving the list —
+   without this it falls back to PrimeVue's default light highlight and looks
+   like a stuck-white row until another option is focused. */
+.p-select-option.p-select-option-selected[data-p-focused="true"],
+.p-multiselect-option.p-multiselect-option-selected[data-p-focused="true"] {
+  background: var(--ares-accent-bg) !important;
+  color: #fff !important;
+}
+
+.p-select-option-group {
+  background: var(--ares-surface-2) !important;
+  color: var(--ares-text-muted) !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 0.4rem 0.75rem !important;
+}
+
+.p-select-empty-message {
+  color: var(--ares-text-muted) !important;
+  font-style: italic;
+  padding: 0.75rem !important;
+}
+
+/* InputText placeholder contrast */
+.p-inputtext::placeholder {
+  color: var(--ares-text-muted) !important;
+  opacity: 0.75;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--ares-bg); }
+::-webkit-scrollbar-thumb { background: var(--ares-border); border-radius: var(--ares-radius); }
+::-webkit-scrollbar-thumb:hover { background: var(--ares-accent-muted); }
+
+/* ── PrimeVue TabView dark-theme override ───────────────────────────────── */
+.p-tabview,
+.p-tabview-nav-container,
+.p-tabview-nav {
+  background: transparent !important;
+}
+.p-tabview-nav {
+  border-bottom-color: var(--ares-border) !important;
+}
+.p-tabview-nav li .p-tabview-nav-link {
+  background: transparent !important;
+  color: var(--ares-text-muted) !important;
+  border-color: transparent !important;
+}
+.p-tabview-nav li.p-highlight .p-tabview-nav-link,
+.p-tabview-nav li:not(.p-highlight):not(.p-disabled):hover .p-tabview-nav-link {
+  background: transparent !important;
+  color: var(--ares-text) !important;
+}
+.p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  border-bottom-color: var(--p-primary-500) !important;
+}
+
+/* ===================================================================
+   Mobile shell — hamburger drawer + condensed topbar.
+   Hidden above the breakpoint; the desktop layout above is unaffected.
+   =================================================================== */
+
+/* Hamburger lives in the topbar source order but is hidden on desktop. */
+.ares-mobile-menu-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--ares-border);
+  border-radius: var(--ares-radius);
+  color: var(--ares-text-2);
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: inherit;
+}
+.ares-mobile-menu-btn:hover {
+  background: var(--ares-surface-2);
+  color: var(--ares-text);
+}
+
+.ares-navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* Backdrop sits behind the open drawer on mobile. Click anywhere to close. */
+.ares-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: var(--ares-topbar-height) 0 0 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+}
+
+/* The breakpoint. Mirrors `useBreakpoint`'s 767/768 split. */
+@media (max-width: 767px) {
+  /* Sidebar becomes a slide-over drawer. The aside is rendered for every
+     route on mobile (see AppShell template) so the hamburger always works.
+     The mobile variant holds a two-column master/detail layout, so it needs
+     to be wider than the desktop sidebar. */
+  .ares-sidebar {
+    position: fixed;
+    top: var(--ares-topbar-height);
+    bottom: 0;
+    left: 0;
+    width: 92vw;
+    max-width: 380px;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 0 transparent;
+  }
+  .ares-sidebar--open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  }
+  /* Mobile variant strips internal padding so the two columns reach the edges. */
+  .ares-sidebar--mobile { padding: 0; overflow: hidden; }
+
+  /* Hide the desktop collapse toggle button on mobile — irrelevant. */
+  .ares-sidebar-toggle { display: none; }
+
+  .ares-sidebar-backdrop { display: block; }
+
+  /* Hamburger appears, brand shrinks a touch. */
+  .ares-mobile-menu-btn { display: inline-flex; }
+
+  /* Hide the desktop topnav cluster (Dashboard / KB / External / Admin).
+     Same links surface inside the drawer via the mobile rail. */
+  .ares-topnav { display: none; }
+
+  /* Condense topbar — drop fixed gap, tighten paddings. */
+  .ares-navbar { padding: 0 0.75rem; gap: 0.5rem; }
+  .ares-navbar-left { gap: 0.6rem; }
+  .ares-navbar-end { gap: 0.4rem; }
+
+  /* Hide noisy items on phones to keep the topbar single-row. The user can
+     reach org/project context from inside the drawer (rail entries surface
+     when there's an active context). */
+  .ares-org-switcher-btn,
+  .ares-project-switcher-btn { display: none; }
+
+  /* Strip the display name from the user button — keep just the avatar. */
+  .ares-user-btn > span:not(.ares-user-avatar) { display: none; }
+  .ares-user-btn { padding: 0.3rem; }
+  .ares-user-btn .pi-chevron-down { display: none; }
+
+  /* Page padding tighter so cards span more of the viewport. */
+  .ares-page { padding: 0.75rem !important; }
+
+  /* Page header stacks vertically so the title gets its own row and the
+     action buttons don't get crammed (which made e.g. "Mark complete" wrap
+     to two lines and look oversized). */
+  .ares-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .ares-page-header > * {
+    min-width: 0;
+  }
+  /* Action button groups (typically the second direct child of the header)
+     wrap if needed instead of overflowing. */
+  .ares-page-header > div:last-child {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .ares-page-title { font-size: 1.2rem; }
+
+  /* Ensure the table-wrap actually scrolls inside the page (the parent now
+     has min-width:0 so this can engage). */
+  .ares-table-wrap { max-width: 100%; }
+
+  /* Two-column drawer.
+     Left rail: fixed-width column of icon buttons (one per top-level section).
+     Right panel: scrolls its own contents, shows children of the active rail
+     entry. The mobile aside hosts this in place of the desktop's single-level
+     templates. */
+  .ares-mobile-drawer {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+  }
+  .ares-mobile-rail {
+    width: 76px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--ares-surface-sunken, var(--ares-bg));
+    border-right: 1px solid var(--ares-border);
+    padding: 0.5rem 0.25rem;
+    gap: 0.2rem;
+    overflow-y: auto;
+  }
+  .ares-mobile-rail-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.55rem 0.25rem;
+    border: none;
+    background: transparent;
+    color: var(--ares-text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: var(--ares-radius);
+    text-align: center;
+    min-height: 60px;
+  }
+  .ares-mobile-rail-btn i { font-size: 1.15rem; }
+  .ares-mobile-rail-btn:hover {
+    background: var(--ares-surface-2);
+    color: var(--ares-text);
+  }
+  .ares-mobile-rail-btn--active {
+    background: var(--ares-surface-2);
+    color: var(--ares-accent);
+  }
+  .ares-mobile-rail-label {
+    font-size: 0.6rem;
+    line-height: 1.15;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .ares-mobile-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0 0.75rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .ares-mobile-panel-header {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ares-text-muted);
+    padding: 0.55rem 0.85rem 0.35rem;
+    font-weight: 700;
+  }
+  .ares-mobile-panel-subtitle {
+    font-size: 0.65rem;
+    color: var(--ares-accent);
+    padding: 0 0.85rem 0.4rem;
+    font-family: monospace;
+    letter-spacing: 0.03em;
+  }
+  .ares-mobile-panel-back {
+    display: inline-flex;
+    align-items: center;
+    color: var(--ares-text-muted);
+    flex-shrink: 0;
+  }
+  .ares-mobile-panel-back:hover { color: var(--ares-text); }
+}
+
+/* Phone-specific extras: monogram brand + dialog full-screen. */
+@media (max-width: 479px) {
+  .ares-navbar-brand {
+    height: 24px;
+  }
+}
+
+/* ===================================================================
+   Tables on mobile — horizontal-scroll inside `.ares-table-wrap`.
+   Default: the wrap scrolls horizontally on its own, the page does NOT
+   scroll horizontally. The table keeps a `min-width` so columns stay
+   readable when wider than the viewport.
+
+   The page-scroll-vs-wrap-scroll distinction depends on `.ares-page`
+   having `min-width: 0` (flex child) — without that, the wrap inherits
+   page-wide width and the table pushes the whole page sideways.
+
+   Card-stack opt-in: views that prefer reflowed cards add
+   `class="ares-table ares-table--stack"` and `data-label` on each <td>.
+   =================================================================== */
+@media (max-width: 767px) {
+  /* Any direct parent of a .ares-table acts as the horizontal scroll wrap.
+     Covers every host pattern: `.ares-table-wrap`, `.ares-card`, section
+     blocks, etc. The :has() selector is supported in all modern browsers
+     (Chrome 105+, Safari 15.4+, Firefox 121+). */
+  .ares-table-wrap,
+  :has(> .ares-table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    /* Always show a thin scrollbar so the affordance is visible — mobile
+       browsers hide it by default until the user actually drags. */
+    scrollbar-width: thin;
+  }
+  /* The table fills its wrap (so narrow 2-3 column tables don't look stranded
+     with empty space) but grows beyond if its natural content width is larger
+     — the wrap's overflow-x:auto then scrolls. */
+  .ares-table {
+    min-width: 100%;
+    width: max-content;
+  }
+
+  /* Card-stack opt-in. The table is restyled to block-level, so the wrap's
+     `min-width: 600px` rule above doesn't matter — the explicit reset wins. */
+  .ares-table--stack {
+    min-width: 0 !important;
+    width: 100% !important;
+    border-collapse: separate;
+    display: block;
+  }
+  .ares-table--stack thead { display: none; }
+  .ares-table--stack tbody,
+  .ares-table--stack tr,
+  .ares-table--stack td { display: block; width: 100%; }
+  .ares-table--stack tr {
+    border: 1px solid var(--ares-border) !important;
+    border-radius: var(--ares-radius);
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--ares-surface);
+  }
+  .ares-table--stack tr:hover { background: var(--ares-surface-2); }
+  .ares-table--stack td {
+    padding: 0.3rem 0 !important;
+    border: none !important;
+    word-break: break-word;
+  }
+  .ares-table--stack td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ares-text-muted);
+    margin-bottom: 0.15rem;
+  }
+  .ares-table--stack td[data-label=""],
+  .ares-table--stack td[data-actions] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: flex-end;
+    padding-top: 0.4rem !important;
+    border-top: 1px solid color-mix(in srgb, var(--ares-border) 50%, transparent) !important;
+    margin-top: 0.3rem;
+  }
+}
+
+/* ===================================================================
+   Forms + dialogs on mobile.
+   The PrimeVue Dialog widths already clamp at 95vw via inline
+   `min(Xpx, 95vw)`. The remaining work is making the INSIDE of dialogs
+   (and equivalent in-page forms) stack instead of side-by-side.
+   =================================================================== */
+@media (max-width: 767px) {
+  /* 2-col inline grids → single column. Catches the inline-style pattern
+     used across ProjectFormView, UserDialog, EditOrgModal, etc., plus any
+     opt-in class `.ares-form-grid-2`. */
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr"],
+  .ares-form-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* AgentTaskFormDialog: keep mode-tabs as one row but allow them to wrap
+     compactly. The mode chips need to stay tappable. */
+  .mode-tabs {
+    grid-template-columns: 1fr !important;
+  }
+  .mode-tab { padding: 0.55rem 0.7rem; }
+  .mode-tab__hint { display: none; }  /* hide the descriptive subtext to keep it compact */
+
+  /* 3-col inline grids (e.g. severity chips row) → single column. */
+  [style*="grid-template-columns: 1fr 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr 1fr"],
+  .ares-form-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Fixed-width select inputs inside dialogs (e.g. extra-field type picker
+     in FindingFormDialog). Let them fill the available width. */
+  [style*="width:220px"], [style*="width: 220px"] {
+    width: 100% !important;
+  }
+
+  /* Mobile: tighter dialog height (global cap is 90vh; mobile gets 95vh
+     because the viewport is shorter and the header eats a larger relative
+     fraction). overflow-y is inherited from the global rule. */
+  .p-dialog {
+    max-height: 95vh !important;
+  }
+}
+
+/* ===================================================================
+   Special widgets on mobile.
+   - Dashboard org carousel: tighter cards, drop the arrow buttons
+     (touch-scroll already works via the scroll-snap track).
+   - Asset graph (Cytoscape): clamp the height so it doesn't dominate
+     the viewport and the legend can sit beneath it.
+   - Detail-page two-pane layouts (AssetDetailView, AgentDetailView)
+     are inline-grids that already collapse via the global 2-col rule
+     above, no extra CSS needed.
+   =================================================================== */
+@media (max-width: 767px) {
+  .dash-org-card { width: 120px !important; }
+  .dash-carousel-arrow { display: none !important; }
+
+  /* AssetGraph canvas height clamp. The original `calc(100vh - 230px)`
+     leaves too little for the legend / actions; cap to 60vh so the
+     graph and below-the-fold content both have breathing room. */
+  .asset-graph-container,
+  .asset-graph {
+    height: 60vh !important;
+    min-height: 320px !important;
+  }
+  /* Cytoscape legend is normally absolute-positioned at a corner. Move
+     it inline below the canvas so the operator can still read it. */
+  .asset-graph-legend {
+    position: static !important;
+    margin-top: 0.5rem;
+  }
+}
+
+/* ===================================================================
+   Touch-target floors on mobile.
+   PrimeVue Buttons in `text` variant render as ~24×24 px hit-areas,
+   which is below the 44 px iOS / 48 px Material recommended minimum.
+   Boost row-action buttons (the most common mobile tap target) so
+   tables-in-cards remain usable on a phone.
+   =================================================================== */
+@media (max-width: 767px) {
+  .row-action,
+  [data-actions] .p-button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+/* ===================================================================
+   Graph loading screens
+   =================================================================== */
+
+/* Initial loading — shown before the first page of assets arrives */
+.graph-init-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  height: calc(100vh - 280px);
+  min-height: 320px;
+  background: #0d0d1a;
+  border-radius: var(--ares-radius);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Floating orb animation */
+.graph-init-loading__orbs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.graph-init-loading__orbs span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ares-primary, #6c63ff);
+  animation: graph-orb-bounce 1.2s ease-in-out infinite;
+  opacity: 0.75;
+}
+.graph-init-loading__orbs span:nth-child(1) { animation-delay: 0s;    background: #6c63ff; }
+.graph-init-loading__orbs span:nth-child(2) { animation-delay: 0.15s; background: #a78bfa; }
+.graph-init-loading__orbs span:nth-child(3) { animation-delay: 0.30s; background: #818cf8; }
+.graph-init-loading__orbs span:nth-child(4) { animation-delay: 0.45s; background: #a78bfa; }
+.graph-init-loading__orbs span:nth-child(5) { animation-delay: 0.60s; background: #6c63ff; }
+
+@keyframes graph-orb-bounce {
+  0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
+  40%            { transform: translateY(-12px); opacity: 1;   }
+}
+
+.graph-init-loading__label {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.03em;
+}
+
+.graph-init-loading__bar {
+  width: 220px;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: var(--ares-radius);
+  overflow: hidden;
+}
+.graph-init-loading__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6c63ff, #a78bfa);
+  border-radius: var(--ares-radius);
+  transition: width 0.3s ease;
+}
+
+/* "Loading more" pill — overlaid above the graph while subsequent pages fetch */
+.graph-load-more-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.5);
+  background: rgba(20,18,40,0.88);
+  border: 1px solid rgba(140,120,255,0.2);
+  border-radius: var(--ares-radius);
+  padding: 5px 12px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.graph-load-more-bar__fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(108,99,255,0.12), rgba(167,139,250,0.08));
+  border-radius: var(--ares-radius);
+  transition: width 0.4s ease;
+  pointer-events: none;
+}
+
+/* ===================================================================
+   Syntax-highlight token colors (@lezer/highlight's classHighlighter)
+   Global (not scoped) because highlighted code is injected via v-html in
+   more than one component (MarkdownView.vue's fenced code blocks,
+   KbExploitDetailView.vue's raw file preview) — scoped CSS attribute
+   selectors don't reach content injected outside Vue's own template
+   compilation, so these live here once instead of being duplicated with
+   :deep() in every consumer.
+   =================================================================== */
+.tok-keyword { color: #c678dd; }
+.tok-string, .tok-string2 { color: #98c379; }
+.tok-comment { color: var(--ares-text-muted); font-style: italic; }
+.tok-number, .tok-bool, .tok-atom { color: #d19a66; }
+.tok-variableName { color: #e06c75; }
+.tok-variableName2, .tok-propertyName { color: #61afef; }
+.tok-typeName, .tok-className, .tok-namespace { color: #e5c07b; }
+.tok-operator, .tok-punctuation { color: var(--ares-text-2); }
+.tok-meta, .tok-invalid { color: var(--ares-error); }
+.tok-definition { font-weight: 600; }
