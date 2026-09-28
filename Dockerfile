@@ -3,4 +3,6 @@
 FROM nginx:1.27-alpine
 COPY dist/ /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+COPY docker-entrypoint.d/10-enable-ssl.sh /docker-entrypoint.d/10-enable-ssl.sh
+RUN chmod +x /docker-entrypoint.d/10-enable-ssl.sh
+EXPOSE 80 443
