@@ -13,10 +13,13 @@ import { useContextStore } from '@/stores/context';
 import SeverityTag from '@/components/SeverityTag.vue';
 import AppPagination from '@/components/AppPagination.vue';
 import Message from 'primevue/message';
+import AffectedAssetsPanel from '@/components/AffectedAssetsPanel.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 
 const route = useRoute();
 const router = useRouter();
 const context = useContextStore();
+const { isMobile } = useBreakpoint();
 
 const orgId = computed(() => Number(route.params.orgId));
 
@@ -144,6 +147,8 @@ onMounted(async () => {
 
     <Message v-if="err" severity="error" :closable="false" style="margin-bottom:1rem;">{{ err }}</Message>
 
+    <div :class="['detail-grid', { 'detail-grid--stacked': isMobile }]">
+    <div class="detail-grid__data">
     <div style="margin-bottom:1rem;">
       <QueryBar entity="finding" placeholder="Search title, code…" :organization-id="orgId" :initial-aql="typeof route.query.aql === 'string' ? route.query.aql : undefined" @search="onSearch" />
     </div>
@@ -245,5 +250,19 @@ onMounted(async () => {
       </div>
       <AppPagination :page="page" :total-pages="totalPages" :total="total" @prev="page--" @next="page++" />
     </template>
+    </div>
+
+    <div class="detail-grid__meta">
+      <AffectedAssetsPanel
+        :org-id="orgId"
+        :organization-id="orgId"
+        :project-ids="projectFilter.length ? projectFilter.map(Number) : undefined"
+        :severity="severityFilter.length ? severityFilter : undefined"
+        :status-id="statusFilter.length ? statusFilter.map(Number) : undefined"
+        :q="searchState.mode === 'basic' && searchState.value ? searchState.value : undefined"
+        :aql="searchState.mode === 'aql' && searchState.value ? searchState.value : undefined"
+      />
+    </div>
+    </div>
   </div>
 </template>

@@ -9,6 +9,12 @@ import { useToast } from 'primevue/usetoast';
 import { reportsApi, reportFieldTypesApi, type Report, type ReportFieldType } from '@/api/reports';
 import { findingsApi, type Finding } from '@/api/findings';
 import SeverityTag from '@/components/SeverityTag.vue';
+import AqlFilterInput from '@/components/AqlFilterInput.vue';
+
+/** Findings fetches driven by an AQL query use a higher cap than the default (ready-to-report)
+ *  load — an AQL filter is expected to narrow a potentially large project down, not just show the
+ *  usual small ready-to-report subset. */
+const AQL_FETCH_SIZE = 1000;
 
 const props = defineProps<{
   visible: boolean;
@@ -39,6 +45,10 @@ const fieldToAdd = ref<number | null>(null);
 // MONITOR iteration range filter
 const iterationFrom = ref('');
 const iterationTo = ref('');
+
+// AQL-based findings filtering/selection
+const aqlQuery = ref('');
+const aqlLoading = ref(false);
 
 const activeFields = computed(() =>
   fieldTypes.value.filter((ft) => includedFieldIds.value.has(ft.id))
@@ -75,6 +85,38 @@ function toggleFinding(id: number) {
   selectedFindingIds.value = s;
 }
 
+/** Re-fetches the visible findings list filtered by the current AQL query — does not touch the
+ *  current selection, same as any other filter/search should behave. */
+async function applyAqlFilter() {
+  aqlLoading.value = true;
+  try {
+    findings.value = await findingsApi
+      .list({ projectId: props.projectId, includeDrafts: true, size: AQL_FETCH_SIZE, aql: aqlQuery.value.trim() || undefined })
+      .then((r) => r.items);
+  } catch {
+    toast.add({ severity: 'error', summary: 'Invalid AQL query', life: 3000 });
+  } finally {
+    aqlLoading.value = false;
+  }
+}
+
+/** Filters by the current AQL query (same as applyAqlFilter) and additionally selects every
+ *  matching finding — additive, doesn't clear an existing selection. */
+async function selectAllMatchingAql() {
+  aqlLoading.value = true;
+  try {
+    const matched = await findingsApi
+      .list({ projectId: props.projectId, includeDrafts: true, size: AQL_FETCH_SIZE, aql: aqlQuery.value.trim() || undefined })
+      .then((r) => r.items);
+    findings.value = matched;
+    selectedFindingIds.value = new Set([...selectedFindingIds.value, ...matched.map((f) => f.id)]);
+  } catch {
+    toast.add({ severity: 'error', summary: 'Invalid AQL query', life: 3000 });
+  } finally {
+    aqlLoading.value = false;
+  }
+}
+
 function applyFieldTemplate(slug: string, content: string) {
   fieldContents.value = { ...fieldContents.value, [slug]: content };
 }
@@ -86,6 +128,7 @@ watch(() => props.visible, async (val) => {
   fieldContents.value = {};
   includedFieldIds.value = new Set();
   fieldToAdd.value = null;
+  aqlQuery.value = '';
 
   const [fts, fds] = await Promise.all([
     reportFieldTypesApi.list().catch(() => []),
@@ -110,24 +153,28 @@ watch(() => props.visible, async (val) => {
 });
 
 async function submit() {
-  if (selectedFindingIds.value.size === 0) {
-    toast.add({ severity: 'warn', summary: 'Select at least one finding', life: 3000 });
-    return;
-  }
   // Only send contents for included fields
   const customFields: Record<string, string> = {};
   activeFields.value.forEach((ft) => {
     if (fieldContents.value[ft.name] != null) customFields[ft.name] = fieldContents.value[ft.name];
   });
+  // Using the MONITOR iteration-range fallback instead of manual selection: only when the range
+  // is actually filled in AND nothing was manually selected — otherwise send the selection
+  // explicitly, even empty, so the backend treats it as authoritative (an explicit empty
+  // selection means "generate a report with no findings", not "fall back to something else").
+  const useIterationRange = props.isMonitor
+    && (iterationFrom.value.trim() || iterationTo.value.trim())
+    && selectedFindingIds.value.size === 0;
+
   saving.value = true;
   try {
     const report = await reportsApi.create({
       projectId: props.projectId,
       organizationId: props.orgId,
       title: reportTitle.value.trim() || undefined,
-      findingIds: selectedFindingIds.value.size ? [...selectedFindingIds.value] : undefined,
-      iterationFrom: props.isMonitor && iterationFrom.value.trim() ? iterationFrom.value.trim() : undefined,
-      iterationTo: props.isMonitor && iterationTo.value.trim() ? iterationTo.value.trim() : undefined,
+      findingIds: useIterationRange ? undefined : [...selectedFindingIds.value],
+      iterationFrom: useIterationRange && iterationFrom.value.trim() ? iterationFrom.value.trim() : undefined,
+      iterationTo: useIterationRange && iterationTo.value.trim() ? iterationTo.value.trim() : undefined,
       customFields,
     });
     emit('generated', report);
@@ -180,6 +227,12 @@ async function submit() {
         </label>
         <Button type="button" :label="allSelected ? 'Deselect all' : 'Select all'"
           size="small" severity="secondary" text @click="toggleAll" />
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+        <AqlFilterInput v-model="aqlQuery" entity="finding" :project-id="projectId" :organization-id="orgId"
+          placeholder="Filter findings by AQL…" style="flex:1;" @blur="applyAqlFilter" @keyup.enter="applyAqlFilter" />
+        <Button type="button" label="Select all matching" size="small" severity="secondary"
+          :loading="aqlLoading" :disabled="!aqlQuery.trim()" @click="selectAllMatchingAql" />
       </div>
       <div class="findings-table-wrap">
         <table class="findings-table">
@@ -282,9 +335,7 @@ async function submit() {
     <!-- Footer -->
     <div style="display:flex; gap:0.5rem; justify-content:flex-end; padding-top:0.25rem; border-top:1px solid var(--ares-border);">
       <Button label="Cancel" severity="secondary" @click="emit('update:visible', false)" />
-      <Button label="Generate" icon="pi pi-bolt" :loading="saving"
-        :disabled="selectedFindingIds.size === 0"
-        @click="submit" />
+      <Button label="Generate" :loading="saving" @click="submit" />
     </div>
   </Dialog>
 </template>

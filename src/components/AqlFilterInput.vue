@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<{
   projectId?: number | null;
   organizationId?: number | null;
 }>(), {
-  placeholder: "priority == 'P0' AND isOpen == true",
+  placeholder: 'priority == "P0" AND isOpen == true',
 });
 
 const emit = defineEmits<{

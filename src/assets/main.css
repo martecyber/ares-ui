@@ -803,6 +803,20 @@ body {
 }
 
 /* ===================================================================
+   Detail grid — shared 2/3+1/3 layout (main content + right-margin meta
+   panel), used by detail views and findings-list views alike. Promoted
+   here from being copy-pasted per-component (KbCweDetailView.vue,
+   FindingDetailView.vue) once a 3rd/4th consumer needed it too.
+   =================================================================== */
+.detail-grid { display: flex; gap: 1.25rem; align-items: flex-start; }
+.detail-grid__data { flex: 2; order: 1; min-width: 0; }
+.detail-grid__meta { flex: 1; order: 2; min-width: 0; }
+.detail-grid--stacked { flex-direction: column; align-items: stretch; }
+.detail-grid--stacked .detail-grid__meta { order: 1; }
+.detail-grid--stacked .detail-grid__data { order: 2; }
+.detail-grid__body { padding: 1rem 1.25rem 1.25rem; }
+
+/* ===================================================================
    PrimeVue overrides — force dark Ares palette on components
    =================================================================== */
 

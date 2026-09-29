@@ -190,9 +190,20 @@ export function severitySeverity(s: string | null): string {
   }
 }
 
+export interface AffectedAsset {
+  id: number;
+  type: string;
+  identifier: string;
+}
+
 export const findingsApi = {
   list(params: { projectId?: number; projectIds?: number[]; organizationId?: number; includeDrafts?: boolean; severity?: string | string[]; statusId?: number | number[]; iterationLabel?: string; q?: string; aql?: string; sortBy?: string; sortDir?: string; page?: number; size?: number } = {}) {
     return apiClient.get<PagedResponse<Finding>>('/findings', { params }).then((r) => r.data);
+  },
+  /** Distinct assets touched by every finding matching the given filter — same params/
+   *  coexistence rule as list(), aggregated across the whole matching set, not one page. */
+  affectedAssets(params: { projectId?: number; projectIds?: number[]; organizationId?: number; includeDrafts?: boolean; severity?: string | string[]; statusId?: number | number[]; iterationLabel?: string; q?: string; aql?: string } = {}) {
+    return apiClient.get<AffectedAsset[]>('/findings/affected-assets', { params }).then((r) => r.data);
   },
   listByAsset(assetId: number, opts: { projectId?: number; organizationId?: number } = {}) {
     return apiClient.get<Finding[]>('/findings/by-asset', { params: { assetId, ...opts } }).then((r) => r.data);

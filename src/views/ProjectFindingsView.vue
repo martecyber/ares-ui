@@ -19,12 +19,15 @@ import { useContextStore } from '@/stores/context';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from 'primevue/usetoast';
 import { confirmDialog } from '@/composables/useConfirmDialog';
+import AffectedAssetsPanel from '@/components/AffectedAssetsPanel.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 
 const route = useRoute();
 const router = useRouter();
 const context = useContextStore();
 const auth = useAuthStore();
 const toast = useToast();
+const { isMobile } = useBreakpoint();
 
 const engId = computed(() => Number(route.params.engId));
 const orgId = computed(() => Number(route.params.orgId));
@@ -284,6 +287,8 @@ onMounted(async () => {
       </div>
     </div>
 
+    <div :class="['detail-grid', { 'detail-grid--stacked': isMobile }]">
+    <div class="detail-grid__data">
     <div v-if="!isRetestType" style="margin-bottom:1rem;">
       <QueryBar entity="finding" placeholder="Search title, code…" :project-id="engId" :organization-id="orgId" :initial-aql="typeof route.query.aql === 'string' ? route.query.aql : undefined" @search="onSearch" />
     </div>
@@ -437,6 +442,20 @@ onMounted(async () => {
         @next="page++"
       />
     </template>
+    </div>
+
+    <div class="detail-grid__meta">
+      <AffectedAssetsPanel
+        :org-id="orgId"
+        :project-id="engId"
+        :eng-id="engId"
+        :include-drafts="true"
+        :severity="severityFilter.length ? severityFilter : undefined"
+        :q="searchState.mode === 'basic' && searchState.value ? searchState.value : undefined"
+        :aql="searchState.mode === 'aql' && searchState.value ? searchState.value : undefined"
+      />
+    </div>
+    </div>
 
     <EscalationWizard
       v-if="!isRetestType"
