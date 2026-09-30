@@ -10,11 +10,13 @@ import { reportsApi, reportFieldTypesApi, type Report, type ReportFieldType } fr
 import { findingsApi, type Finding } from '@/api/findings';
 import SeverityTag from '@/components/SeverityTag.vue';
 import AqlFilterInput from '@/components/AqlFilterInput.vue';
+import AppPagination from '@/components/AppPagination.vue';
 
-/** Findings fetches driven by an AQL query use a higher cap than the default (ready-to-report)
- *  load — an AQL filter is expected to narrow a potentially large project down, not just show the
- *  usual small ready-to-report subset. */
-const AQL_FETCH_SIZE = 1000;
+const PAGE_SIZE = 20;
+/** "Select all matching" and the ready-to-report pre-selection both need every matching finding's
+ *  id, not just one page — capped rather than truly unbounded, same tradeoff as everywhere else
+ *  in the app that does a bulk "matching" action. */
+const SELECT_ALL_FETCH_SIZE = 1000;
 
 const props = defineProps<{
   visible: boolean;
@@ -32,6 +34,10 @@ const toast = useToast();
 const saving = ref(false);
 const fieldTypes = ref<ReportFieldType[]>([]);
 const findings = ref<Finding[]>([]);
+const findingsLoading = ref(false);
+const page = ref(0);
+const totalPages = ref(0);
+const total = ref(0);
 
 // Form state
 const reportTitle = ref('');
@@ -69,47 +75,53 @@ function removeField(id: number) {
   includedFieldIds.value = s;
 }
 
-// Findings helpers
-const allSelected = computed(() => findings.value.length > 0 && findings.value.every((f) => selectedFindingIds.value.has(f.id)));
-
-function toggleAll() {
-  if (allSelected.value) {
-    selectedFindingIds.value = new Set();
-  } else {
-    selectedFindingIds.value = new Set(findings.value.map((f) => f.id));
-  }
-}
 function toggleFinding(id: number) {
   const s = new Set(selectedFindingIds.value);
   if (s.has(id)) s.delete(id); else s.add(id);
   selectedFindingIds.value = s;
 }
 
-/** Re-fetches the visible findings list filtered by the current AQL query — does not touch the
- *  current selection, same as any other filter/search should behave. */
-async function applyAqlFilter() {
-  aqlLoading.value = true;
+/** Loads the current page of findings, filtered by the current AQL query if any. Does not touch
+ *  the selection — paging/filtering the view and what's selected are independent, same as every
+ *  other list in the app. */
+async function loadPage() {
+  findingsLoading.value = true;
   try {
-    findings.value = await findingsApi
-      .list({ projectId: props.projectId, includeDrafts: true, size: AQL_FETCH_SIZE, aql: aqlQuery.value.trim() || undefined })
-      .then((r) => r.items);
+    const res = await findingsApi.list({
+      projectId: props.projectId,
+      includeDrafts: true,
+      page: page.value,
+      size: PAGE_SIZE,
+      aql: aqlQuery.value.trim() || undefined,
+    });
+    findings.value = res.items;
+    totalPages.value = res.totalPages;
+    total.value = res.total;
   } catch {
-    toast.add({ severity: 'error', summary: 'Invalid AQL query', life: 3000 });
+    if (aqlQuery.value.trim()) toast.add({ severity: 'error', summary: 'Invalid AQL query', life: 3000 });
   } finally {
-    aqlLoading.value = false;
+    findingsLoading.value = false;
   }
 }
 
-/** Filters by the current AQL query (same as applyAqlFilter) and additionally selects every
- *  matching finding — additive, doesn't clear an existing selection. */
+function applyAqlFilter() {
+  page.value = 0;
+  loadPage();
+}
+
+/** Fetches every finding matching the current AQL query (not just the current page) and selects
+ *  all of them — additive, doesn't clear an existing selection. Also resyncs the visible page so
+ *  it reflects the same filter, in case the button is clicked before the field's own blur/Enter
+ *  filtering ran. */
 async function selectAllMatchingAql() {
   aqlLoading.value = true;
   try {
     const matched = await findingsApi
-      .list({ projectId: props.projectId, includeDrafts: true, size: AQL_FETCH_SIZE, aql: aqlQuery.value.trim() || undefined })
+      .list({ projectId: props.projectId, includeDrafts: true, size: SELECT_ALL_FETCH_SIZE, aql: aqlQuery.value.trim() || undefined })
       .then((r) => r.items);
-    findings.value = matched;
     selectedFindingIds.value = new Set([...selectedFindingIds.value, ...matched.map((f) => f.id)]);
+    page.value = 0;
+    await loadPage();
   } catch {
     toast.add({ severity: 'error', summary: 'Invalid AQL query', life: 3000 });
   } finally {
@@ -129,16 +141,17 @@ watch(() => props.visible, async (val) => {
   includedFieldIds.value = new Set();
   fieldToAdd.value = null;
   aqlQuery.value = '';
+  page.value = 0;
 
-  const [fts, fds] = await Promise.all([
+  const [fts, readyIds] = await Promise.all([
     reportFieldTypesApi.list().catch(() => []),
-    findingsApi.list({ projectId: props.projectId, includeDrafts: true, size: 200 }).then((r) => r.items).catch(() => []),
+    // Pre-selection needs every ready-to-report finding's id, not just the first page.
+    findingsApi.list({ projectId: props.projectId, includeDrafts: true, aql: 'isReadyToReport == true', size: SELECT_ALL_FETCH_SIZE })
+      .then((r) => r.items.map((f) => f.id)).catch(() => []),
   ]);
   fieldTypes.value = fts;
-  findings.value = fds;
-
-  // Pre-select findings marked ready to report
-  selectedFindingIds.value = new Set(fds.filter((f) => f.isReadyToReport).map((f) => f.id));
+  selectedFindingIds.value = new Set(readyIds);
+  await loadPage();
 
   // Include required fields + fields that have a default template
   const initialIds = new Set<number>();
@@ -220,13 +233,11 @@ async function submit() {
 
     <!-- Findings selection -->
     <div>
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+      <div style="margin-bottom:0.5rem;">
         <label class="dlg-label" style="margin:0;">
           Findings to include
           <span style="font-weight:400; color:var(--ares-text-muted);">({{ selectedFindingIds.size }} selected)</span>
         </label>
-        <Button type="button" :label="allSelected ? 'Deselect all' : 'Select all'"
-          size="small" severity="secondary" text @click="toggleAll" />
       </div>
       <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
         <AqlFilterInput v-model="aqlQuery" entity="finding" :project-id="projectId" :organization-id="orgId"
@@ -260,14 +271,16 @@ async function submit() {
                 <i v-if="f.isReadyToReport" class="pi pi-check-circle" style="color:#22c55e; font-size:0.9rem;" />
               </td>
             </tr>
-            <tr v-if="!findings.length">
+            <tr v-if="!findings.length && !findingsLoading">
               <td colspan="5" style="padding:1rem; text-align:center; color:var(--ares-text-muted); font-size:0.83rem;">
-                No findings in this project.
+                No findings match.
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+      <AppPagination :page="page" :total-pages="totalPages" :total="total"
+        @prev="page--; loadPage()" @next="page++; loadPage()" />
     </div>
 
     <!-- Custom fields -->
@@ -325,6 +338,8 @@ async function submit() {
           </div>
           <MarkdownEditor
             :model-value="fieldContents[ft.name] ?? ''"
+            :organization-id="orgId"
+            :project-id="projectId"
             @update:model-value="(v: string) => fieldContents = { ...fieldContents, [ft.name]: v }"
             editor-style="min-height:100px; max-height:260px; overflow-y:auto;"
           />

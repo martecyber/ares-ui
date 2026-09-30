@@ -37,6 +37,11 @@ const filteredAffections = computed(() => {
 
 const canNext = computed(() => mode.value === 'new_affection' || !!selectedAffection.value);
 
+// immediate: true — this dialog is v-if-gated on findingId in EscalationWizard, and findingId
+// flips to non-null in the same tick that step flips to 'affection-target', so it mounts with
+// visible already true. A plain (non-immediate) watch only fires on a later false→true change,
+// which never happens here, so without `immediate` this never ran and the finding's existing
+// affections silently never loaded — every escalation looked like the target finding had none.
 watch(() => props.visible, async (v) => {
   if (!v) return;
   affectionSearch.value = '';
@@ -49,7 +54,7 @@ watch(() => props.visible, async (v) => {
   } finally {
     loading.value = false;
   }
-});
+}, { immediate: true });
 
 function affectionAssetSummary(aff: FindingAffection): string {
   return (aff.affects?.map((a) => a.identifier).slice(0, 3) ?? []).join(', ');

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
-import { renderMarkdown, renderReadme, enhanceCodeBlocks } from '@/utils/markdown';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { renderMarkdown, renderReadme, enhanceCodeBlocks, enhanceEditorImages, revokeEditorImageUrls } from '@/utils/markdown';
 
 const props = defineProps<{
   source?: string | null;
@@ -18,11 +18,19 @@ const html = computed(() => {
 const rootRef = ref<HTMLElement>();
 
 // v-html content isn't part of Vue's vdom, so code-block syntax highlighting
-// (async — grammars are lazy-loaded) and the copy button's click handling are
-// wired up directly against the DOM after each re-render.
+// (async — grammars are lazy-loaded), editor-image auth resolution (also async — a fetch per
+// image), and the copy button's click handling are wired up directly against the DOM after each
+// re-render.
 watch(html, () => {
-  nextTick(() => { if (rootRef.value) enhanceCodeBlocks(rootRef.value); });
+  if (rootRef.value) revokeEditorImageUrls(rootRef.value);
+  nextTick(() => {
+    if (!rootRef.value) return;
+    enhanceCodeBlocks(rootRef.value);
+    enhanceEditorImages(rootRef.value);
+  });
 }, { immediate: true });
+
+onBeforeUnmount(() => { if (rootRef.value) revokeEditorImageUrls(rootRef.value); });
 
 function onClick(event: MouseEvent) {
   const btn = (event.target as HTMLElement).closest('.md-code-copy') as HTMLElement | null;

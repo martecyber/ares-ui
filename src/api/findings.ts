@@ -190,20 +190,9 @@ export function severitySeverity(s: string | null): string {
   }
 }
 
-export interface AffectedAsset {
-  id: number;
-  type: string;
-  identifier: string;
-}
-
 export const findingsApi = {
   list(params: { projectId?: number; projectIds?: number[]; organizationId?: number; includeDrafts?: boolean; severity?: string | string[]; statusId?: number | number[]; iterationLabel?: string; q?: string; aql?: string; sortBy?: string; sortDir?: string; page?: number; size?: number } = {}) {
     return apiClient.get<PagedResponse<Finding>>('/findings', { params }).then((r) => r.data);
-  },
-  /** Distinct assets touched by every finding matching the given filter — same params/
-   *  coexistence rule as list(), aggregated across the whole matching set, not one page. */
-  affectedAssets(params: { projectId?: number; projectIds?: number[]; organizationId?: number; includeDrafts?: boolean; severity?: string | string[]; statusId?: number | number[]; iterationLabel?: string; q?: string; aql?: string } = {}) {
-    return apiClient.get<AffectedAsset[]>('/findings/affected-assets', { params }).then((r) => r.data);
   },
   listByAsset(assetId: number, opts: { projectId?: number; organizationId?: number } = {}) {
     return apiClient.get<Finding[]>('/findings/by-asset', { params: { assetId, ...opts } }).then((r) => r.data);
@@ -277,6 +266,11 @@ export const findingsApi = {
   },
   publishAllReady(projectId: number) {
     return apiClient.post<Finding[]>('/findings/publish-all-ready', null, { params: { projectId } }).then((r) => r.data);
+  },
+  /** MONITOR-project findings only — moves an already-published finding to a different
+   *  iteration, re-deriving its code (and its affections' codes) under the new one. */
+  moveIteration(id: number, projectId: number, iterationLabel: string) {
+    return apiClient.post<Finding>(`/findings/${id}/move-iteration`, { iterationLabel }, { params: { projectId } }).then((r) => r.data);
   },
   saveAsTemplate(id: number, projectId: number) {
     return apiClient.post(`/findings/${id}/save-as-template`, null, { params: { projectId } }).then((r) => r.data);

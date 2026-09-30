@@ -202,36 +202,55 @@ function parseMetadataVector(metadata: string | null): string {
 // FindingFormDialog's applyDetectionData() produced for a single detection, extended to a
 // batch: when two+ detections carry a default score of the same type, the highest wins (the
 // analyst can still edit/remove it below before submitting).
+//
+// Additive to whatever `scores.value`/`selectedRefs.value` already hold (e.g. a template's own
+// defaults, applied by the templateId watcher just before this runs) — a detection only fills in
+// a score TYPE the template didn't already provide; it never overwrites one that's already there.
+// This used to be a wholesale `scores.value = ...` replace, which silently discarded every
+// template score the instant this ran afterward — the actual bug behind "template scores aren't
+// inherited... including detection escalation".
 function seedFromContextDetections() {
   const dets = props.contextDetections ?? [];
   if (!dets.length) return;
 
+  const existingTypeIds = new Set(scores.value.map((s) => s.typeId));
+  const alreadyHasDefault = scores.value.some((s) => s.isDefault);
   const byType = new Map<number, { typeId: number; typeTitle: string; score: number; metadata: string | null; isDefault: boolean }>();
   for (const det of dets) {
     for (const ds of det.scores) {
+      if (existingTypeIds.has(ds.typeId)) continue;
       const existing = byType.get(ds.typeId);
       if (!existing || Number(ds.score) > existing.score) {
         byType.set(ds.typeId, { typeId: ds.typeId, typeTitle: ds.typeTitle, score: Number(ds.score), metadata: ds.metadata, isDefault: ds.isDefault });
       }
     }
   }
-  scores.value = [...byType.values()].map((ds) => ({
-    id: undefined,
-    typeId: ds.typeId,
-    typeName: ds.typeTitle,
-    score: ds.score,
-    vector: parseMetadataVector(ds.metadata),
-    isDefault: ds.isDefault,
-    comment: '',
-  }));
+  let defaultAssigned = alreadyHasDefault;
+  const newRows: ScoreRow[] = [...byType.values()].map((ds) => {
+    const isDefault = !defaultAssigned && ds.isDefault;
+    if (isDefault) defaultAssigned = true;
+    return {
+      id: undefined,
+      typeId: ds.typeId,
+      typeName: ds.typeTitle,
+      score: ds.score,
+      vector: parseMetadataVector(ds.metadata),
+      isDefault,
+      comment: '',
+    };
+  });
+  if (newRows.length) scores.value = [...scores.value, ...newRows];
 
-  const refMap = new Map<number, ReferenceEntry>();
+  const existingRefIds = new Set(selectedRefs.value.map((r) => r.id));
+  const newRefs: ReferenceEntry[] = [];
   for (const det of dets) {
     for (const dr of det.references ?? []) {
-      if (!refMap.has(dr.id)) refMap.set(dr.id, { id: dr.id, catalogId: dr.catalogId, title: dr.title, description: '' });
+      if (!existingRefIds.has(dr.id) && !newRefs.some((r) => r.id === dr.id)) {
+        newRefs.push({ id: dr.id, catalogId: dr.catalogId, title: dr.title, description: '' });
+      }
     }
   }
-  selectedRefs.value = [...refMap.values()];
+  if (newRefs.length) selectedRefs.value = [...selectedRefs.value, ...newRefs];
 }
 
 // ── reset when dialog opens ───────────────────────────────────────────────────
@@ -475,6 +494,7 @@ onMounted(async () => {
                 </label>
                 <MarkdownEditor
                   v-model="field.fieldText"
+                  :project-id="projectId"
                   editor-style="min-height:90px; max-height:280px; overflow-y:auto;"
                   :placeholder="'Enter ' + field.typeName.toLowerCase() + '…'"
                 />
@@ -497,6 +517,7 @@ onMounted(async () => {
                 </div>
                 <MarkdownEditor
                   v-model="field.fieldText"
+                  :project-id="projectId"
                   editor-style="min-height:80px; max-height:240px; overflow-y:auto;"
                   placeholder="Content…"
                 />

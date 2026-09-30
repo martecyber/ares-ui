@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify';
 import { languages } from '@codemirror/language-data';
 import type { Language, LanguageDescription } from '@codemirror/language';
 import { highlightCode, classHighlighter } from '@lezer/highlight';
+import { apiClient } from '@/api/client';
 
 // html:false means literal HTML typed/pasted into a field is escaped as visible
 // text instead of being parsed and executed — this is the actual XSS fix (see
@@ -151,6 +152,46 @@ export async function enhanceCodeBlocks(root: HTMLElement): Promise<void> {
     codeEl.innerHTML = html;
   }));
 }
+
+// ── Editor-image auth pass ────────────────────────────────────────────────
+// editor-images requires authentication now (see EditorImageService's own class doc for why a
+// plain <img src> stopped working) — markdown-it still emits a raw <img src="...editor-images/
+// {token}">, so this fetches each one with the app's own authenticated apiClient and swaps in a
+// blob: URL after the HTML mounts, same async-post-render pattern as enhanceCodeBlocks above.
+
+/** Object URLs created for a given root element, so a re-render can revoke the previous batch
+ *  instead of leaking them — blob URLs are never automatically freed. */
+const blobUrlsByRoot = new WeakMap<HTMLElement, string[]>();
+
+function revokeEditorImageUrls(root: HTMLElement): void {
+  blobUrlsByRoot.get(root)?.forEach((u) => URL.revokeObjectURL(u));
+  blobUrlsByRoot.delete(root);
+}
+
+/** Resolves every not-yet-processed `<img>` under `root` whose src is an editor-images URL into
+ *  an authenticated blob: URL — call this after the rendered HTML mounts/updates, and call
+ *  {@link revokeEditorImageUrls} first if `root`'s content is about to be replaced/removed. */
+export async function enhanceEditorImages(root: HTMLElement): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img[src*="/editor-images/"]:not([data-resolved])'));
+  const created: string[] = [];
+  await Promise.all(imgs.map(async (img) => {
+    const src = img.getAttribute('src');
+    img.dataset.resolved = 'true';
+    if (!src) return;
+    try {
+      const res = await apiClient.get<Blob>(src, { responseType: 'blob' });
+      const objectUrl = URL.createObjectURL(res.data);
+      created.push(objectUrl);
+      img.src = objectUrl;
+    } catch {
+      // Left as the original (now-401ing) URL — the browser shows a broken-image icon, same
+      // as any other image that fails to load.
+    }
+  }));
+  if (created.length) blobUrlsByRoot.set(root, [...(blobUrlsByRoot.get(root) ?? []), ...created]);
+}
+
+export { revokeEditorImageUrls };
 
 export interface HighlightedFile {
   /** One highlighted (already HTML-escaped) string per source line. */

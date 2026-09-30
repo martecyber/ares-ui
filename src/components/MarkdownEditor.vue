@@ -27,6 +27,11 @@ const props = defineProps<{
   modelValue: string | null;
   editorStyle?: string;
   placeholder?: string;
+  /** Scope uploaded images to this organization/project so only users with access to it can
+   *  later view them — omit both only when this editor genuinely has no such context (a
+   *  platform-wide KB form), where uploaded images fall back to MSSP-staff-only access. */
+  organizationId?: number | null;
+  projectId?: number | null;
 }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
@@ -303,7 +308,10 @@ async function uploadAndInsertImage(file: File, atPos?: number) {
   const insertPos = atPos ?? view.state.selection.main.from;
   uploadStatus.value = `Uploading ${file.name}…`;
   try {
-    const { url } = await editorImagesApi.upload(file);
+    const { url } = await editorImagesApi.upload(file, {
+      organizationId: props.organizationId ?? undefined,
+      projectId: props.projectId ?? undefined,
+    });
     if (!view) return;
     const alt = file.name.replace(/\.[^./\\]+$/, '');
     const insert = `![${alt}](${url})`;

@@ -329,6 +329,8 @@ function initials(displayName: string | null, email: string | null): string {
           <MarkdownEditor
             v-if="!isArchived"
             :model-value="board.notes ?? ''"
+            :organization-id="orgId"
+            :project-id="projectId"
             editor-style="height:100%; min-height:0;"
             placeholder="Investigation notes — findings, correlations, evidence…"
             @update:model-value="onNotesChange"

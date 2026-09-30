@@ -325,6 +325,43 @@ async function unassignTag(tagId: number) {
   finding.value = await findingsApi.unassignTag(finding.value.id, finding.value.projectId, tagId);
 }
 
+// ── Move iteration (MONITOR projects only) ─────────────────────────
+const showMoveIterationDialog = ref(false);
+const iterationOptions = ref<string[]>([]);
+const iterationTarget = ref<string | null>(null);
+const movingIteration = ref(false);
+const canMoveIteration = computed(() =>
+  !coreReadonly.value && !!finding.value && !finding.value.isDraft && !!project.value?.iterationCadence);
+
+async function openMoveIterationDialog() {
+  if (!finding.value || !project.value) return;
+  iterationTarget.value = finding.value.iterationLabel ?? null;
+  showMoveIterationDialog.value = true;
+  try {
+    const stats = await projectsApi.monitorStats(project.value.id);
+    const labels = new Set(stats.byIteration.map((r) => r.label));
+    if (stats.currentIterationLabel) labels.add(stats.currentIterationLabel);
+    if (finding.value.iterationLabel) labels.add(finding.value.iterationLabel);
+    iterationOptions.value = [...labels].sort();
+  } catch {
+    iterationOptions.value = finding.value.iterationLabel ? [finding.value.iterationLabel] : [];
+  }
+}
+
+async function confirmMoveIteration() {
+  if (!finding.value || !iterationTarget.value) return;
+  movingIteration.value = true;
+  try {
+    finding.value = await findingsApi.moveIteration(finding.value.id, finding.value.projectId, iterationTarget.value);
+    showMoveIterationDialog.value = false;
+    toast.add({ severity: 'success', summary: 'Iteration updated', detail: `Finding moved to ${iterationTarget.value} (${finding.value.code}).`, life: 4000 });
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Failed to move iteration', detail: e?.response?.data?.detail ?? e?.message, life: 5000 });
+  } finally {
+    movingIteration.value = false;
+  }
+}
+
 // ── Affect status change dialog ───────────────────────────────────
 const showStatusDialog = ref(false);
 const statusPending = ref<{ affectionId: number; assetId: number; current: string; label: string } | null>(null);
@@ -787,6 +824,23 @@ onMounted(async () => {
               <dt>Code</dt>
               <dd class="finding-code" style="display:inline-block;">{{ finding.code || 'draft' }}</dd>
 
+              <template v-if="finding.iterationLabel || project?.iterationCadence">
+                <dt>Iteration</dt>
+                <dd style="display:flex; align-items:center; gap:0.4rem;">
+                  <span>{{ finding.iterationLabel ?? '—' }}</span>
+                  <Button
+                    v-if="canMoveIteration"
+                    icon="pi pi-arrow-right-arrow-left"
+                    text
+                    size="small"
+                    severity="secondary"
+                    v-tooltip="'Move to a different iteration'"
+                    style="width:1.6rem; height:1.6rem; padding:0;"
+                    @click="openMoveIterationDialog"
+                  />
+                </dd>
+              </template>
+
               <dt>Project</dt>
               <dd>{{ project?.name ?? ('#' + finding.projectId) }}</dd>
 
@@ -888,6 +942,8 @@ onMounted(async () => {
               <!-- Editing mode -->
               <MarkdownEditor v-if="!coreReadonly && editingFieldId === field.id"
                 v-model="editingFieldText"
+                :organization-id="Number(route.params.orgId)"
+                :project-id="finding?.projectId"
                 editor-style="min-height:120px; max-height:400px; overflow-y:auto;"
               />
               <!-- Read mode -->
@@ -1168,6 +1224,27 @@ onMounted(async () => {
       :finding-id="finding.id"
       :project-id="finding.projectId"
     />
+
+    <!-- Move to a different iteration (MONITOR projects only) -->
+    <Dialog v-model:visible="showMoveIterationDialog" modal :draggable="false" :style="{ width: 'min(420px, 96vw)' }">
+      <template #header><span style="font-weight:600;">Move iteration</span></template>
+      <div style="display:flex; flex-direction:column; gap:0.9rem;">
+        <p style="margin:0; font-size:0.82rem; color:var(--ares-text-muted);">
+          Re-codes this finding (and its affections) under the target iteration.
+        </p>
+        <Select
+          v-model="iterationTarget"
+          :options="iterationOptions"
+          editable
+          placeholder="Iteration label"
+          style="width:100%;"
+        />
+      </div>
+      <template #footer>
+        <Button label="Cancel" severity="secondary" text @click="showMoveIterationDialog = false" />
+        <Button label="Move" :loading="movingIteration" :disabled="!iterationTarget" @click="confirmMoveIteration" />
+      </template>
+    </Dialog>
   </div>
 </template>
 

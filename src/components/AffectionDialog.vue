@@ -526,7 +526,7 @@ async function save() {
         <!-- Description -->
         <div>
           <label class="dlg-label">Details <span class="dlg-opt">(optional)</span></label>
-          <MarkdownEditor v-model="description" editor-style="min-height:110px; max-height:280px; overflow-y:auto;" placeholder="Context, steps to reproduce, evidence notes…" />
+          <MarkdownEditor v-model="description" :organization-id="orgId" :project-id="projectId" editor-style="min-height:110px; max-height:280px; overflow-y:auto;" placeholder="Context, steps to reproduce, evidence notes…" />
         </div>
 
         <!-- Assets: detected (left) / affects (right), matching the finding page's table -->
