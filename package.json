@@ -1,7 +1,7 @@
 {
   "name": "@ares/ui",
   "private": true,
-  "version": "1.0.0-beta67",
+  "version": "1.0.0-beta3",
   "type": "module",
   "description": "Ares ASM — web UI (MSSP operators + client organizations)",
   "license": "AGPL-3.0-or-later",
