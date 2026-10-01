@@ -17,7 +17,7 @@ export const TOOL_ICON_SRC: Record<string, string> = {
   zap:          `${S}/zap.svg`,
   greenbone:    `${S}/greenbone.svg`,
   crowdstrike:  `${S}/crowdstrike.svg`,
-  fortirecon:   `${S}/fortinet.svg`,
+  fortirecon:   `${S}/fortirecon.svg`,
   // Traced from a community-hosted PNG screenshot of Action1's "A1" mark (not fetched from an
   // action1.com-owned URL — no official standalone SVG icon mark was found publicly, only a wide
   // wordmark, see the wordmark note that used to be here). Vector-traced (skimage contour trace,
@@ -61,6 +61,12 @@ export const TOOL_ICON_SRC: Record<string, string> = {
  */
 const LIGHT_ICON_SRC: Partial<Record<string, string>> = {
   trivy: `${S}/trivy-light.svg`,
+  fortirecon: `${S}/fortirecon-light.svg`,
+  shodan: `${S}/shodan-light.svg`,
+  caido: `${S}/caido-light.svg`,
+  'caido-api': `${S}/caido-light.svg`,
+  hackerone: `${S}/hackerone-light.svg`,
+  intigriti: `${S}/intigriti-light.svg`,
 };
 
 /** Icons for plugin-provided tools (see com.martecyber.ares.plugins on the backend) — these can't

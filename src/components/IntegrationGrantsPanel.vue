@@ -6,7 +6,7 @@ import { ref, computed, onMounted } from 'vue';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
-import { toolIntegrationsApi, INTEGRATION_TYPES, type ToolIntegration, type IntegrationGrant } from '@/api/tool-integrations';
+import { toolIntegrationsApi, INTEGRATION_TYPES, mergeWithDynamicTypes, type ToolIntegration, type IntegrationGrant, type RegisteredIntegrationType } from '@/api/tool-integrations';
 import { organizationsApi } from '@/api/organizations';
 import { projectsApi } from '@/api/projects';
 import ActiveGrantsTable, { type ActiveGrantRow } from '@/components/ActiveGrantsTable.vue';
@@ -43,8 +43,16 @@ const selectedCapabilities = ref<string[]>([]);
 const orgWide          = ref(true);
 const saving           = ref(false);
 
+// Plugin-provided integration types (FortiRecon, Shodan — see tool-integrations.ts's own note on
+// why they have no static INTEGRATION_TYPES entry anymore) fall through to the backend's live
+// registry instead, same source ToolIntegrationFormDialog's own type picker already uses via
+// mergeWithDynamicTypes — otherwise this panel always saw an empty capability list for them,
+// with nothing to select and no grant creatable.
+const registeredTypes = ref<RegisteredIntegrationType[]>([]);
 const availableCapabilities = computed(() =>
-  INTEGRATION_TYPES.find((t) => t.id === props.integration.type)?.capabilities ?? []
+  INTEGRATION_TYPES.find((t) => t.id === props.integration.type)?.capabilities
+    ?? mergeWithDynamicTypes(registeredTypes.value).find((t) => t.id === props.integration.type)?.capabilities
+    ?? []
 );
 
 const isMssp = computed(() => props.integration.type === 'tenable-mssp');
@@ -156,9 +164,12 @@ async function revokeGrant(grantId: number) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadGrants();
   loadOrgs();
+  if (!INTEGRATION_TYPES.find((t) => t.id === props.integration.type)) {
+    registeredTypes.value = await toolIntegrationsApi.listTypes().catch(() => []);
+  }
   selectedCapabilities.value = availableCapabilities.value.map((c) => c.id);
   loadMsspAccounts();
   loadGreenboneTasks();
