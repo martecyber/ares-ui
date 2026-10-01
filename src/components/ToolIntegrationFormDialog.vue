@@ -220,7 +220,11 @@ async function testAndSave() {
       if (crowdstrikeClientSecret.value) credentials.client_secret = crowdstrikeClientSecret.value;
     }
     if (type.value === 'fortirecon') {
-      if (fortireconApiKey.value) credentials.apiKey = fortireconApiKey.value;
+      // Trimmed — a Password-type field is a common target for browser/password-manager autofill,
+      // which can silently carry a trailing newline or space from the copied value; FortiRecon's
+      // API validates the Authorization header byte-for-byte, so an untrimmed key reads as a
+      // flatly wrong credential (401 "Invalid Authorisation key") with no hint it was whitespace.
+      if (fortireconApiKey.value) credentials.apiKey = fortireconApiKey.value.trim();
     }
 
     if (isEdit.value) {
