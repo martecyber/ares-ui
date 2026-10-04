@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import * as Sentry from '@sentry/vue';
 import { createPinia } from 'pinia';
 import PrimeVue from 'primevue/config';
 import { definePreset } from '@primevue/themes';
@@ -70,6 +71,15 @@ const AresPreset = definePreset(Aura, {
 });
 
 const app = createApp(App);
+
+// Error tracking only — no performance tracing (tracesSampleRate unset) — see
+// src/runtime-config.d.ts for why the DSN comes from window.ARES_RUNTIME_CONFIG rather than a
+// Vite build-time env var. A blank DSN (the default when SENTRY_DSN isn't set on the server) is
+// Sentry's own documented way to no-op the whole SDK, so no conditional is needed here.
+Sentry.init({
+  app,
+  dsn: window.ARES_RUNTIME_CONFIG?.sentryDsn,
+});
 
 app.use(createPinia());
 app.use(router);
