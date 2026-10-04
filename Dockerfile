@@ -3,6 +3,7 @@
 FROM nginx:1.27-alpine
 COPY dist/ /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.d/05-api-upstream.sh /docker-entrypoint.d/05-api-upstream.sh
 COPY docker-entrypoint.d/10-enable-ssl.sh /docker-entrypoint.d/10-enable-ssl.sh
-RUN chmod +x /docker-entrypoint.d/10-enable-ssl.sh
+RUN chmod +x /docker-entrypoint.d/05-api-upstream.sh /docker-entrypoint.d/10-enable-ssl.sh
 EXPOSE 80 443
