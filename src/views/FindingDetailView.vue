@@ -524,6 +524,21 @@ function openEditAffection(aff: FindingAffection) {
   showAffectionDialog.value = true;
 }
 
+async function deleteAffection(aff: FindingAffection) {
+  const ok = await confirmDialog({
+    header: 'Delete affection',
+    message: `Permanently delete "${aff.code}" from this finding, including its asset links and status history? This is not the same as closing it, and cannot be undone.`,
+  });
+  if (!ok) return;
+  try {
+    await affectionsApi.delete(aff.id);
+    toast.add({ severity: 'success', summary: 'Affection deleted', life: 3000 });
+    await load();
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Failed to delete affection', detail: e?.response?.data?.message ?? e.message, life: 5000 });
+  }
+}
+
 function openStatusDialog(affectionId: number, assetId: number, current: string, label: string) {
   statusPending.value = { affectionId, assetId, current, label };
   newAffectStatus.value = current;
@@ -982,6 +997,8 @@ onMounted(async () => {
                 :disabled="!aff.affects.some(a => a.status === 'open')"
                 @click="openCloseAffectionDialog(aff)" />
               <Button icon="pi pi-pencil" text size="small" severity="secondary" @click="openEditAffection(aff)" />
+              <Button v-if="auth.isAdmin" icon="pi pi-trash" text size="small" severity="danger"
+                v-tooltip.top="'Delete affection'" @click="deleteAffection(aff)" />
             </div>
           </div>
           <MarkdownView v-if="aff.description" :source="aff.description" class="aff-card__body" />

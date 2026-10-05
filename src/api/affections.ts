@@ -16,6 +16,10 @@ export const affectionsApi = {
   update(id: number, body: { title?: string | null; description?: string | null }) {
     return apiClient.patch<Finding>(`/affections/${id}`, body).then((r) => r.data);
   },
+  /** Hard-deletes the affection from its finding (not a resolve/close) — MSSP_ADMIN only. */
+  delete(id: number) {
+    return apiClient.delete(`/affections/${id}`).then(() => undefined);
+  },
   addDetectedAt(id: number, assetId: number) {
     return apiClient.post<Finding>(`/affections/${id}/detected-at/${assetId}`).then((r) => r.data);
   },
