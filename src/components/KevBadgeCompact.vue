@@ -1,12 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 const props = defineProps<{
   cveId: string;
   kevListed: boolean | null | undefined;
+  /** CVEs contributing to an aggregated badge; the click opens the first one. */
+  cveIds?: string[];
 }>();
 
 const router = useRouter();
+
+const tooltip = computed(() =>
+  props.cveIds && props.cveIds.length > 1
+    ? `Listed in a Known Exploited Vulnerabilities catalog: ${props.cveIds.join(', ')} — click for the first`
+    : 'Listed in a Known Exploited Vulnerabilities catalog — click for details');
 
 function open() {
   router.push({ name: 'kb-cve-detail', params: { id: props.cveId } });
@@ -17,7 +25,7 @@ function open() {
   <span
     v-if="kevListed"
     class="kev-badge-compact"
-    v-tooltip.top="'Listed in a Known Exploited Vulnerabilities catalog — click for details'"
+    v-tooltip.top="tooltip"
     @click.stop="open"
   >
     <i class="pi pi-exclamation-triangle" />

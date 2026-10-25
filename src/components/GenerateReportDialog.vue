@@ -41,7 +41,62 @@ const total = ref(0);
 
 // Form state
 const reportTitle = ref('');
-const selectedFindingIds = ref<Set<number>>(new Set());
+// Findings are picked into sections: the always-present default one (template variable
+// `findings`) plus any number of operator-named extra ones, each its own template variable.
+interface ExtraSection { variable: string; label: string; ids: Set<number> }
+const defaultIds = ref<Set<number>>(new Set());
+const extraSections = ref<ExtraSection[]>([]);
+const activeSection = ref('default');
+const newSectionLabel = ref('');
+const newSectionVariable = ref('');
+const SECTION_VARIABLE = /^[a-z][A-Za-z0-9_]{0,40}$/;
+const RESERVED_PREFIXES = ['findings', 'detections', 'project', 'report'];
+const RESERVED_NAMES = ['default', 'organization', 'team', 'fields', 'scores', 'references', 'affections',
+  'affects', 'detectedAt', 'affectedAssets', 'retestHistory', 'chartPie', 'chartBar'];
+
+/** The set the table's checkboxes (and "Select all matching") currently edit. */
+const selectedFindingIds = computed<Set<number>>({
+  get: () => activeSection.value === 'default'
+    ? defaultIds.value
+    : extraSections.value.find((s) => s.variable === activeSection.value)?.ids ?? new Set(),
+  set: (v) => {
+    if (activeSection.value === 'default') defaultIds.value = v;
+    else {
+      const sec = extraSections.value.find((s) => s.variable === activeSection.value);
+      if (sec) sec.ids = v;
+    }
+  },
+});
+
+/** Variable name derived from a section label: "Previous findings" -> "previousFindings". */
+function suggestVariable(label: string): string {
+  const words = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Za-z0-9]+/).filter(Boolean);
+  return words.map((w, i) => i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()).join('');
+}
+watch(newSectionLabel, (label) => { newSectionVariable.value = suggestVariable(label); });
+
+const newSectionError = computed(() => {
+  const v = newSectionVariable.value;
+  if (!v) return '';
+  if (!SECTION_VARIABLE.test(v)) return 'Variable: letters/digits/underscore, starting with a lowercase letter';
+  if (RESERVED_NAMES.includes(v) || RESERVED_PREFIXES.some((p) => v.startsWith(p))) return `"${v}" is reserved`;
+  if (extraSections.value.some((s) => s.variable === v)) return `"${v}" already exists`;
+  return '';
+});
+
+function addSection() {
+  if (!newSectionLabel.value.trim() || !newSectionVariable.value || newSectionError.value) return;
+  extraSections.value = [...extraSections.value,
+    { variable: newSectionVariable.value, label: newSectionLabel.value.trim(), ids: new Set() }];
+  activeSection.value = newSectionVariable.value;
+  newSectionLabel.value = '';
+  newSectionVariable.value = '';
+}
+
+function removeSection(variable: string) {
+  extraSections.value = extraSections.value.filter((s) => s.variable !== variable);
+  if (activeSection.value === variable) activeSection.value = 'default';
+}
 const fieldContents = ref<Record<string, string>>({});
 const includedFieldIds = ref<Set<number>>(new Set());
 
@@ -136,7 +191,11 @@ function applyFieldTemplate(slug: string, content: string) {
 watch(() => props.visible, async (val) => {
   if (!val) return;
   reportTitle.value = '';
-  selectedFindingIds.value = new Set();
+  defaultIds.value = new Set();
+  extraSections.value = [];
+  activeSection.value = 'default';
+  newSectionLabel.value = '';
+  newSectionVariable.value = '';
   fieldContents.value = {};
   includedFieldIds.value = new Set();
   fieldToAdd.value = null;
@@ -150,7 +209,7 @@ watch(() => props.visible, async (val) => {
       .then((r) => r.items.map((f) => f.id)).catch(() => []),
   ]);
   fieldTypes.value = fts;
-  selectedFindingIds.value = new Set(readyIds);
+  defaultIds.value = new Set(readyIds);
   await loadPage();
 
   // Include required fields + fields that have a default template
@@ -177,7 +236,8 @@ async function submit() {
   // selection means "generate a report with no findings", not "fall back to something else").
   const useIterationRange = props.isMonitor
     && (iterationFrom.value.trim() || iterationTo.value.trim())
-    && selectedFindingIds.value.size === 0;
+    && defaultIds.value.size === 0
+    && extraSections.value.every((s) => s.ids.size === 0);
 
   saving.value = true;
   try {
@@ -185,7 +245,10 @@ async function submit() {
       projectId: props.projectId,
       organizationId: props.orgId,
       title: reportTitle.value.trim() || undefined,
-      findingIds: useIterationRange ? undefined : [...selectedFindingIds.value],
+      findingIds: useIterationRange ? undefined : [...defaultIds.value],
+      findingSections: extraSections.value.length
+        ? extraSections.value.map((s) => ({ variable: s.variable, label: s.label, findingIds: [...s.ids] }))
+        : undefined,
       iterationFrom: useIterationRange && iterationFrom.value.trim() ? iterationFrom.value.trim() : undefined,
       iterationTo: useIterationRange && iterationTo.value.trim() ? iterationTo.value.trim() : undefined,
       customFields,
@@ -236,9 +299,32 @@ async function submit() {
       <div style="margin-bottom:0.5rem;">
         <label class="dlg-label" style="margin:0;">
           Findings to include
-          <span style="font-weight:400; color:var(--ares-text-muted);">({{ selectedFindingIds.size }} selected)</span>
+          <span style="font-weight:400; color:var(--ares-text-muted);">({{ selectedFindingIds.size }} selected in this section)</span>
         </label>
       </div>
+
+      <!-- Sections: the checkboxes below edit the active one -->
+      <div class="section-bar">
+        <button type="button" class="section-chip" :class="{ active: activeSection === 'default' }"
+          @click="activeSection = 'default'">
+          Default <code>findings</code> · {{ defaultIds.size }}
+        </button>
+        <span v-for="s in extraSections" :key="s.variable" class="section-chip"
+          :class="{ active: activeSection === s.variable }" @click="activeSection = s.variable">
+          {{ s.label }} <code>{{ s.variable }}</code> · {{ s.ids.size }}
+          <i class="pi pi-times" style="font-size:0.65rem; margin-left:0.35rem;" @click.stop="removeSection(s.variable)" />
+        </span>
+      </div>
+      <div class="section-add">
+        <InputText v-model="newSectionLabel" size="small" placeholder="New section name (e.g. Previous findings)" style="flex:1;" />
+        <InputText v-model="newSectionVariable" size="small" placeholder="variable" style="width:180px;" :invalid="!!newSectionError" />
+        <Button type="button" icon="pi pi-plus" label="Add section" size="small" severity="secondary"
+          :disabled="!newSectionLabel.trim() || !newSectionVariable || !!newSectionError" @click="addSection" />
+      </div>
+      <p v-if="newSectionError" style="font-size:0.72rem; color:#ef4444; margin:0 0 0.5rem;">{{ newSectionError }}</p>
+      <p v-else-if="newSectionVariable" style="font-size:0.72rem; color:var(--ares-text-muted); margin:0 0 0.5rem;">
+        Use <code>{{ '{{?' + newSectionVariable + '}}' }}</code> in the template; <code>{{ '{{' + newSectionVariable + 'Title}}' }}</code> prints the section name.
+      </p>
       <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
         <AqlFilterInput v-model="aqlQuery" entity="finding" :project-id="projectId" :organization-id="orgId"
           placeholder="Filter findings by AQL…" style="flex:1;" @blur="applyAqlFilter" @keyup.enter="applyAqlFilter" />
@@ -365,6 +451,15 @@ async function submit() {
   margin-bottom: 0.35rem;
 }
 
+.section-bar { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.5rem; }
+.section-chip {
+  display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer;
+  font-size:0.78rem; padding:0.25rem 0.65rem; border-radius:var(--ares-radius);
+  border:1px solid var(--ares-border); background:transparent; color:var(--ares-text-2);
+}
+.section-chip code { font-size:0.68rem; color:var(--ares-accent); }
+.section-chip.active { border-color:var(--ares-accent); background:color-mix(in srgb, var(--p-primary-500) 10%, transparent); }
+.section-add { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem; }
 .findings-table-wrap {
   border: 1px solid var(--ares-border);
   border-radius: var(--ares-radius);

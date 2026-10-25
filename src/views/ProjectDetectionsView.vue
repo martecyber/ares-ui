@@ -30,6 +30,19 @@ const orgId = computed(() => Number(route.params.orgId));
 
 const PAGE_SIZE = 50;
 const detections = ref<Detection[]>([]);
+
+// A detection can carry many CVE references: show one KEV badge and one PoC badge
+// per row, with the PoC count summed across its CVEs.
+function kevCves(d: Detection): string[] {
+  return d.references.filter(r => r.catalogCode === 'CVE' && r.kevListed).map(r => r.title);
+}
+function pocSummary(d: Detection): { count: number; cves: string[] } {
+  const withPocs = d.references.filter(r => r.catalogCode === 'CVE' && r.exploitCount);
+  return {
+    count: withPocs.reduce((sum, r) => sum + (r.exploitCount ?? 0), 0),
+    cves: withPocs.map(r => r.title),
+  };
+}
 const loading = ref(true);
 const total = ref(0);
 const totalPages = ref(0);
@@ -309,14 +322,12 @@ onMounted(async () => {
                 <div>{{ d.title }}</div>
                 <div v-if="d.sourceTemplateId" style="font-size:0.72rem; color:var(--ares-text-muted);">{{ d.sourceTemplateId }}</div>
                 <div
-                  v-if="d.references.some(r => r.catalogCode === 'CVE' && (r.kevListed || r.exploitCount))"
+                  v-if="kevCves(d).length || pocSummary(d).count"
                   style="display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.25rem;"
                   @click.stop
                 >
-                  <template v-for="r in d.references.filter(r => r.catalogCode === 'CVE')" :key="r.id">
-                    <KevBadgeCompact :cve-id="r.title" :kev-listed="r.kevListed" />
-                    <ExploitBadge :cve-id="r.title" :count="r.exploitCount" />
-                  </template>
+                  <KevBadgeCompact v-if="kevCves(d).length" :cve-id="kevCves(d)[0]" :kev-listed="true" :cve-ids="kevCves(d)" />
+                  <ExploitBadge v-if="pocSummary(d).count" :cve-id="pocSummary(d).cves[0]" :count="pocSummary(d).count" :cve-ids="pocSummary(d).cves" />
                 </div>
               </td>
               <td style="font-size:0.8rem; color:var(--ares-text-2);">

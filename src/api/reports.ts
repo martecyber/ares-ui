@@ -206,6 +206,9 @@ export const reportsApi = {
     organizationId: number;
     title?: string;
     findingIds?: number[];
+    /** Extra named finding sections beside the default `findingIds` one; each is a separate
+     *  template variable (`{{?variable}}`). */
+    findingSections?: { variable: string; label: string; findingIds: number[] }[];
     iterationFrom?: string | null;
     iterationTo?: string | null;
     customFields?: Record<string, string>;
