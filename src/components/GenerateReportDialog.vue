@@ -84,6 +84,9 @@ const newSectionError = computed(() => {
   return '';
 });
 
+const sectionLoopTag = computed(() => `{{?${newSectionVariable.value}}}`);
+const sectionTitleTag = computed(() => `{{${newSectionVariable.value}Title}}`);
+
 function addSection() {
   if (!newSectionLabel.value.trim() || !newSectionVariable.value || newSectionError.value) return;
   extraSections.value = [...extraSections.value,
@@ -323,7 +326,7 @@ async function submit() {
       </div>
       <p v-if="newSectionError" style="font-size:0.72rem; color:#ef4444; margin:0 0 0.5rem;">{{ newSectionError }}</p>
       <p v-else-if="newSectionVariable" style="font-size:0.72rem; color:var(--ares-text-muted); margin:0 0 0.5rem;">
-        Use <code>{{ '{{?' + newSectionVariable + '}}' }}</code> in the template; <code>{{ '{{' + newSectionVariable + 'Title}}' }}</code> prints the section name.
+        Use <code>{{ sectionLoopTag }}</code> in the template; <code>{{ sectionTitleTag }}</code> prints the section name.
       </p>
       <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
         <AqlFilterInput v-model="aqlQuery" entity="finding" :project-id="projectId" :organization-id="orgId"
