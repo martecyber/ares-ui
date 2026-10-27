@@ -945,6 +945,18 @@ body {
   border-bottom-color: var(--ares-border) !important;
 }
 
+/* Scroll arrows shown when the tab list overflows: PrimeVue's own tokens resolve to a light
+   fill (and a light fade shadow) here, so follow the same --ares-surface as the list itself. */
+.p-tablist-nav-button {
+  background: var(--ares-surface) !important;
+  color: var(--ares-text-muted) !important;
+  box-shadow: 0 0 10px 50px var(--ares-surface) !important;
+}
+
+.p-tablist-nav-button:hover {
+  color: var(--ares-text) !important;
+}
+
 .p-tab {
   background: transparent !important;
   color: var(--ares-text-muted) !important;

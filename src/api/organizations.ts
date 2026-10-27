@@ -100,6 +100,10 @@ export const organizationsApi = {
   archive(id: number) {
     return apiClient.delete<void>(`/organizations/${id}`).then((r) => r.data);
   },
+  /** Irreversible hard delete of the org and everything under it; `confirmName` must equal its name. */
+  deletePermanently(id: number, confirmName: string) {
+    return apiClient.delete<void>(`/organizations/${id}/permanent`, { params: { confirmName } }).then((r) => r.data);
+  },
   uploadLogo(id: number, file: File) {
     const form = new FormData();
     form.append('file', file);

@@ -18,6 +18,7 @@ import { severityToPriorityLabel } from '@/utils/cvss';
 import { usersApi, type UserSummary } from '@/api/users';
 import { useAuthStore } from '@/stores/auth';
 import { useContextStore } from '@/stores/context';
+import { confirmDialog } from '@/composables/useConfirmDialog';
 
 // Replaces the old EditOrgModal — same fields/behavior, now a real page instead of a dialog.
 // Logo upload used to live on ClientDetailView's own header avatar, but that page now always
@@ -62,6 +63,57 @@ async function onLogoSelected(event: Event) {
   } finally {
     logoUploading.value = false;
     if (logoInput.value) logoInput.value.value = '';
+  }
+}
+
+// Danger zone (platform admins only): archive/reactivate, or delete the org permanently.
+const archiving = ref(false);
+const showDeleteConfirm = ref(false);
+const deleteConfirmName = ref('');
+const deleting = ref(false);
+const deleteError = ref('');
+const canDelete = computed(() => !!org.value && deleteConfirmName.value.trim() === org.value.name);
+
+async function toggleArchive() {
+  if (!org.value) return;
+  const archived = org.value.status === 'archived';
+  if (!archived) {
+    const ok = await confirmDialog({
+      message: `Archive "${org.value.name}"? The organization becomes inactive but no data is deleted.`,
+      header: 'Archive organization',
+      acceptLabel: 'Archive',
+      acceptIcon: 'pi pi-archive',
+    });
+    if (!ok) return;
+  }
+  archiving.value = true;
+  try {
+    if (archived) org.value = await organizationsApi.update(org.value.id, { status: 'active' });
+    else {
+      await organizationsApi.archive(org.value.id);
+      org.value = { ...org.value, status: 'archived' };
+    }
+    toast.add({ severity: 'success', summary: archived ? 'Organization reactivated' : 'Organization archived', life: 3000 });
+  } catch {
+    toast.add({ severity: 'error', summary: archived ? 'Failed to reactivate' : 'Failed to archive', life: 5000 });
+  } finally {
+    archiving.value = false;
+  }
+}
+
+async function deleteOrganization() {
+  if (!org.value || !canDelete.value) return;
+  deleting.value = true;
+  deleteError.value = '';
+  try {
+    await organizationsApi.deletePermanently(org.value.id, deleteConfirmName.value.trim());
+    context.clear();
+    toast.add({ severity: 'success', summary: 'Organization deleted', life: 3000 });
+    router.push({ name: 'organizations' });
+  } catch (e: any) {
+    deleteError.value = e?.response?.data?.message ?? e?.response?.data?.detail ?? e?.message ?? 'Failed to delete organization';
+  } finally {
+    deleting.value = false;
   }
 }
 
@@ -280,6 +332,40 @@ onMounted(() => {
             <div style="display:flex; justify-content:flex-end; padding-top:0.5rem; border-top:1px solid var(--ares-border);">
               <Button v-if="auth.isAdmin || auth.isClientAdmin" label="Save" size="small" :loading="saving" :disabled="!name.trim()" @click="save" />
             </div>
+
+            <!-- Danger zone -->
+            <div v-if="auth.isAdmin" class="danger-zone">
+              <div style="font-size:0.78rem; font-weight:600; color:var(--p-red-400); margin-bottom:0.5rem;">Danger zone</div>
+
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; padding-bottom:0.85rem; margin-bottom:0.85rem; border-bottom:1px solid color-mix(in srgb, var(--p-red-500) 25%, transparent);">
+                <span style="font-size:0.8rem; color:var(--ares-text-muted);">
+                  {{ org?.status === 'archived'
+                    ? 'This organization is archived. Reactivate it to make it active again.'
+                    : 'Archive this organization. It becomes inactive but no data is deleted.' }}
+                </span>
+                <Button
+                  :label="org?.status === 'archived' ? 'Reactivate' : 'Archive'"
+                  :icon="org?.status === 'archived' ? 'pi pi-refresh' : 'pi pi-archive'"
+                  severity="danger" outlined size="small" :loading="archiving" @click="toggleArchive"
+                />
+              </div>
+
+              <div v-if="!showDeleteConfirm" style="display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+                <span style="font-size:0.8rem; color:var(--ares-text-muted);">Permanently delete this organization, including all its projects, assets, findings, detections and reports.</span>
+                <Button label="Delete organization" severity="danger" outlined size="small" @click="showDeleteConfirm = true" />
+              </div>
+              <div v-else style="display:flex; flex-direction:column; gap:0.6rem;">
+                <p style="margin:0; font-size:0.82rem; color:var(--ares-text-2);">
+                  Type <strong>{{ org?.name }}</strong> to confirm deletion. This cannot be undone.
+                </p>
+                <InputText v-model="deleteConfirmName" :placeholder="org?.name" class="w-full" style="font-size:0.85rem;" />
+                <Message v-if="deleteError" severity="error" :closable="false">{{ deleteError }}</Message>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                  <Button label="Cancel" severity="secondary" size="small" @click="showDeleteConfirm = false; deleteConfirmName = ''; deleteError = ''" />
+                  <Button label="Delete permanently" severity="danger" size="small" :loading="deleting" :disabled="!canDelete" @click="deleteOrganization" />
+                </div>
+              </div>
+            </div>
           </div>
         </TabPanel>
 
@@ -369,3 +455,12 @@ onMounted(() => {
     </Tabs>
   </div>
 </template>
+
+<style scoped>
+.danger-zone {
+  margin-top: 0.5rem; padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--p-red-500) 35%, transparent);
+  border-radius: var(--ares-radius);
+  background: color-mix(in srgb, var(--p-red-500) 6%, transparent);
+}
+</style>
