@@ -2,8 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useBreakpoint } from '@/composables/useBreakpoint';
-import { assetsApi, ASSET_TYPE_LABELS, ASSET_LINK_LABELS, type Asset, type AssetRelationshipDetail, type AssetToolSighting, type AssetToolSightingProject, type ServiceVisibility } from '@/api/assets';
-import { dataFieldsFor, parseServiceIdentifier, type DataFieldDef } from '@/api/asset-data-schemas';
+import { assetsApi, ASSET_TYPE_LABELS, ASSET_LINK_LABELS, type Asset, type AssetRelationshipDetail, type AssetToolSighting, type AssetToolSightingProject, type ServiceVisibility, type AssetExternalId } from '@/api/assets';
+import { classifyTxtRecord, dataFieldsFor, parseServiceIdentifier, type DataFieldDef } from '@/api/asset-data-schemas';
 import { toolIconSrc, whiteBackingSrc } from '@/utils/tool-icons';
 import { projectsApi, type ScopeExplain } from '@/api/projects';
 import { detectionsApi, detectionStatusSeverity, detectionStatusLabel, type Detection } from '@/api/detections';
@@ -12,6 +12,7 @@ import SeverityTag from '@/components/SeverityTag.vue';
 import AresBadge from '@/components/AresBadge.vue';
 import HttpSamplesPanel, { type HttpSampleInput } from '@/components/HttpSamplesPanel.vue';
 import RelationshipMiniGraph from '@/components/RelationshipMiniGraph.vue';
+import AddRelationshipDialog from '@/components/AddRelationshipDialog.vue';
 import EditableField from '@/components/EditableField.vue';
 import UrlListField from '@/components/UrlListField.vue';
 import ChipListField from '@/components/ChipListField.vue';
@@ -55,6 +56,7 @@ const findPagedItems = computed(() =>
 );
 const visibility = ref<ServiceVisibility[]>([]);
 const toolSightings = ref<AssetToolSighting[]>([]);
+const externalIds = ref<AssetExternalId[]>([]);
 const sightingProjects = ref<AssetToolSightingProject[]>([]);
 const loading = ref(true);
 
@@ -227,15 +229,21 @@ async function saveHostnames(newList: string[]) {
   }
 }
 
-const resettingName = ref(false);
+const savingNameMode = ref(false);
 
-async function resetHostName() {
+const hostNameModeTooltip = computed(() =>
+  asset.value?.nameOverride
+    ? 'Pinned: set manually. Imports and Hostnames changes will not rename this host.'
+    : 'Auto: taken from the first hostname (host-<IP> if there are none). Editing the name pins it.',
+);
+
+async function setHostNamePinned(pinned: boolean) {
   if (!asset.value) return;
-  resettingName.value = true;
+  savingNameMode.value = true;
   try {
-    asset.value = await assetsApi.update(asset.value.id, { nameOverride: false });
+    asset.value = await assetsApi.update(asset.value.id, { nameOverride: pinned });
   } finally {
-    resettingName.value = false;
+    savingNameMode.value = false;
   }
 }
 
@@ -251,8 +259,10 @@ const dataFields = computed<DataFieldDef[]>(() => {
 
 function fieldDisplayValue(key: string): string {
   if (key === 'identifier') return asset.value?.identifier ?? '';
+  if (key === 'displayName') return asset.value?.displayName ?? '';
   if (key === 'hostSubtype') return hostSubtypeDraft.value;
   if (key === 'ipVersion') return asset.value?.identifier.includes(':') ? 'IPv6' : 'IPv4';
+  if (key === 'txtKind') return classifyTxtRecord(asset.value?.identifier ?? '');
   if (key === 'resolvedIps') return resolvedIps.value.join(', ');
   if (asset.value?.type === 'service') {
     const parsed = parseServiceIdentifier(asset.value.identifier);
@@ -291,6 +301,10 @@ async function saveDataField(key: string, value: string) {
   try {
     if (key === 'identifier') {
       asset.value = await assetsApi.update(asset.value.id, { identifier: value });
+      return;
+    }
+    if (key === 'displayName') {
+      asset.value = await assetsApi.update(asset.value.id, { displayName: value });
       return;
     }
     const updated: Record<string, unknown> = { ...meta.value };
@@ -391,6 +405,7 @@ async function load() {
     findings.value   = fnd;
     toolSightings.value = sightings;
     sightingProjects.value = sightingProjs;
+    externalIds.value = auth.isClient ? [] : await assetsApi.listExternalIds(assetId).catch(() => [] as AssetExternalId[]);
     relPage.value = 0;
     detPage.value = 0;
     findPage.value = 0;
@@ -455,6 +470,12 @@ function goToRelatedAsset(relatedAssetId: number) {
   } else if (orgId.value) {
     router.push({ name: 'org-asset-detail', params: { orgId: orgId.value, id: relatedAssetId } });
   }
+}
+
+const showAddRelationship = ref(false);
+async function reloadRelationships() {
+  if (!asset.value) return;
+  relationships.value = await assetsApi.listRelationships(asset.value.id).catch(() => relationships.value);
 }
 
 async function removeOrHideRelationship(r: AssetRelationshipDetail, event: Event) {
@@ -531,9 +552,12 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
     <template v-else-if="asset">
       <!-- Header -->
       <div class="ares-page-header" style="align-items:flex-start; margin-bottom:1.5rem;">
-        <div style="display:flex; align-items:center; gap:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.75rem; min-width:0;">
           <Button icon="pi pi-arrow-left" severity="secondary" text @click="router.back()" />
-          <h2 class="ares-page-title" style="margin:0;">{{ asset.identifier }}</h2>
+          <div style="min-width:0;">
+            <h2 class="ares-page-title title-clamp" style="margin:0;" :title="asset.identifier.length > 80 ? asset.identifier : undefined">{{ asset.displayName || asset.identifier }}</h2>
+            <div v-if="asset.displayName" class="title-clamp" style="font-family:monospace; font-size:0.8rem; color:var(--ares-text-muted);">{{ asset.identifier }}</div>
+          </div>
         </div>
         <div v-if="!auth.isClient" style="display:flex; align-items:center; gap:0.5rem;">
           <!-- Hide button — project context only -->
@@ -612,6 +636,15 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
               <dd>{{ detections.length }}</dd>
               <dt>Relationships</dt>
               <dd>{{ relationships.length }}</dd>
+              <template v-if="externalIds.length">
+                <dt v-tooltip.top="'IDs the source tools use for this asset — integrations resolve re-syncs by them, so it is never duplicated'">Source IDs</dt>
+                <dd>
+                  <div v-for="e in externalIds" :key="e.tool + e.externalId" class="source-id">
+                    <span class="source-id__tool">{{ e.tool }}</span>
+                    <code class="source-id__value">{{ e.externalId }}</code>
+                  </div>
+                </dd>
+              </template>
               <dt>Discovered</dt>
               <dd>{{ asset.createdAt.slice(0, 10) }}</dd>
               <dt>Last modified</dt>
@@ -633,8 +666,14 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
                       {{ (f.editor === 'url-list' ? webAppBaseUrls : f.editor === 'hostname-list' ? (asset.hostnames ?? []) : fieldListValue(f.key)).join(', ') || '—' }}
                     </span>
                     <span v-else style="font-size:0.85rem;">{{ fieldDisplayValue(f.key) || '—' }}</span>
+                    <span v-if="f.key === 'identifier' && asset.type === 'host'"
+                      :class="['name-mode', asset.nameOverride ? 'name-mode--pinned' : 'name-mode--auto']"
+                      v-tooltip.top="hostNameModeTooltip">
+                      <i :class="asset.nameOverride ? 'pi pi-thumbtack' : 'pi pi-sync'" />
+                      {{ asset.nameOverride ? 'Pinned' : 'Auto' }}
+                    </span>
                   </template>
-                  <div v-else-if="f.key === 'identifier' && asset.type === 'host' && asset.nameOverride"
+                  <div v-else-if="f.key === 'identifier' && asset.type === 'host'"
                     style="display:flex; align-items:center; gap:0.4rem;">
                     <EditableField
                       :model-value="fieldDisplayValue(f.key)"
@@ -644,9 +683,17 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
                       @save="(v) => saveDataField(f.key, v)"
                       style="flex:1;"
                     />
-                    <Button icon="pi pi-replay" text rounded size="small" severity="secondary"
-                      :loading="resettingName" v-tooltip.top="'Reset to auto-naming from Hostnames'"
-                      @click="resetHostName" />
+                    <span :class="['name-mode', asset.nameOverride ? 'name-mode--pinned' : 'name-mode--auto']"
+                      v-tooltip.top="hostNameModeTooltip">
+                      <i :class="asset.nameOverride ? 'pi pi-thumbtack' : 'pi pi-sync'" />
+                      {{ asset.nameOverride ? 'Pinned' : 'Auto' }}
+                    </span>
+                    <Button v-if="asset.nameOverride" icon="pi pi-replay" text rounded size="small" severity="secondary"
+                      :loading="savingNameMode" v-tooltip.top="'Unpin — derive the name from Hostnames again'"
+                      @click="setHostNamePinned(false)" />
+                    <Button v-else icon="pi pi-thumbtack" text rounded size="small" severity="secondary"
+                      :loading="savingNameMode" v-tooltip.top="'Pin the current name so imports and hostname changes never rename it'"
+                      @click="setHostNamePinned(true)" />
                   </div>
                   <UrlListField
                     v-else-if="f.editor === 'url-list'"
@@ -923,6 +970,13 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
               <i class="pi pi-angle-right" style="font-size:0.75rem;" />
             </button>
           </span>
+          <Button
+            v-if="!auth.isClient"
+            label="Add" icon="pi pi-plus" size="small" text
+            :style="{ marginLeft: relPageCount > 1 ? '0.5rem' : 'auto' }"
+            v-tooltip="'Add a relationship to another asset'"
+            @click="showAddRelationship = true"
+          />
         </div>
 
         <!-- Split: table left, graph right (stacked on mobile) -->
@@ -951,7 +1005,13 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
                   <td><code style="font-size:0.72rem; color:var(--ares-text-muted);">{{ r.relatedCode }}</code></td>
                   <td style="font-size:0.78rem; color:var(--ares-text-muted);">{{ ASSET_LINK_LABELS[r.linkType] ?? r.linkType }}</td>
                   <td><span style="font-size:0.76rem; color:var(--ares-text-2);">{{ ASSET_TYPE_LABELS[r.relatedType] ?? r.relatedType }}</span></td>
-                  <td style="font-family:monospace; font-size:0.8rem;">{{ r.relatedIdentifier }}</td>
+                  <td style="font-family:monospace; font-size:0.8rem;">
+                    <template v-if="r.relatedDisplayName">
+                      <span style="font-family:var(--ares-font, inherit);">{{ r.relatedDisplayName }}</span>
+                      <span style="display:block; font-size:0.72rem; color:var(--ares-text-muted);">{{ r.relatedIdentifier }}</span>
+                    </template>
+                    <template v-else>{{ r.relatedIdentifier }}</template>
+                  </td>
                   <td v-if="engId">
                     <template v-if="scopeStatusMap[String(r.relatedAssetId)]">
                       <i v-if="scopeStatusMap[String(r.relatedAssetId)].override" class="pi pi-pencil" style="font-size:0.55rem; opacity:0.6; margin-right:0.2rem;" />
@@ -1080,6 +1140,14 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
       Asset not found.
     </div>
 
+    <AddRelationshipDialog
+      v-if="asset && !auth.isClient"
+      v-model:visible="showAddRelationship"
+      :source="asset"
+      :from-project="!!engId"
+      @created="reloadRelationships"
+    />
+
     <!-- Delete dialog (org context) -->
     <Dialog v-model:visible="deleteDialog" header="Delete asset" modal style="width:24rem;">
       <p style="color:var(--ares-text-2); margin-bottom:1rem; font-size:0.88rem;">
@@ -1131,6 +1199,54 @@ watch(() => route.params.id, (newId, oldId) => { if (newId && newId !== oldId) l
 </template>
 
 <style scoped>
+.source-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.source-id + .source-id {
+  margin-top: 0.4rem;
+}
+.source-id__tool {
+  font-size: 0.72rem;
+  color: var(--ares-text-muted);
+  text-transform: capitalize;
+}
+.source-id__value {
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+.title-clamp {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.name-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-left: 0.4rem;
+  padding: 0.1em 0.5em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: var(--ares-radius);
+  border: 1px solid var(--ares-border);
+  color: var(--ares-text-muted);
+  white-space: nowrap;
+  cursor: help;
+}
+.name-mode .pi { font-size: 0.6rem; }
+.name-mode--pinned {
+  color: var(--ares-accent);
+  border-color: color-mix(in srgb, var(--ares-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--ares-accent) 10%, transparent);
+}
+
 .section-header-label {
   display: inline-flex;
   align-items: center;

@@ -5,6 +5,7 @@ import fcose from 'cytoscape-fcose';
 import type { Core, NodeSingular } from 'cytoscape';
 import type { Asset, AssetRelationship } from '@/api/assets';
 import { ASSET_TYPE_LABELS, ASSET_LINK_LABELS, HOST_SUBTYPE_LABELS } from '@/api/assets';
+import { loadLinkTypes, linkableTypes } from '@/composables/useAssetLinkTypes';
 
 cytoscape.use(fcose as any);
 
@@ -17,6 +18,10 @@ const props = defineProps<{
   allowHide?: boolean;
   allowDeleteRelationship?: boolean;
   allowHideRelationship?: boolean;
+  /** Shows "Link to…" in the node context menu (manual relationship creation). */
+  allowLink?: boolean;
+  /** View-only graph (client users): no merge/link/hide/delete actions in any context menu. */
+  readonly?: boolean;
   /** Visually distinguishes this node (cyan ring) — e.g. the center of a neighborhood view. */
   focusAssetId?: number | null;
   /** Visually distinguishes these nodes (green ring) — e.g. currently-selected picker items. */
@@ -30,6 +35,7 @@ const emit = defineEmits<{
   (e: 'nodeDelete',  asset: Asset): void;
   (e: 'nodeHide',    asset: Asset): void;
   (e: 'nodeMerge',   source: Asset, target: Asset): void;
+  (e: 'nodeLink',    source: Asset, target: Asset): void;
   (e: 'edgeDelete',  rel: AssetRelationship): void;
   (e: 'edgeHide',    rel: AssetRelationship): void;
 }>();
@@ -194,11 +200,11 @@ function serviceLabel(id: string): string {
   const m = id.match(/:(\d+\/\w+)$/);
   return m ? m[1].toUpperCase() : truncate(id, 12);
 }
-function networkLabel(asset: Asset): string {
-  try {
-    const meta = asset.metadata ? JSON.parse(asset.metadata) : {};
-    return (meta.name as string) ? `${meta.name}\n${asset.identifier}` : asset.identifier;
-  } catch { return asset.identifier; }
+/** Display name on top of the identifier (networks always show their CIDR too). */
+function namedLabel(asset: Asset): string | null {
+  const name = asset.displayName?.trim();
+  if (!name) return null;
+  return asset.type === 'network' ? `${truncate(name)}\n${asset.identifier}` : truncate(name);
 }
 function endpointLabel(identifier: string): string {
   try {
@@ -295,9 +301,9 @@ function buildElements(): cytoscape.ElementDefinition[] {
     if (collapsedIds.has(a.id)) continue;
     const isIface = a.type === 'interface';
     const nodeDeg = degree.get(a.id) ?? 0;
-    const label = isIface ? '' : (
+    const label = isIface ? '' : namedLabel(a) ?? (
       a.type === 'service'      ? serviceLabel(a.identifier) :
-      a.type === 'network'      ? networkLabel(a) :
+      a.type === 'network'      ? a.identifier :
       a.type === 'web_endpoint' ? endpointLabel(a.identifier) :
       truncate(a.identifier)
     );
@@ -310,7 +316,7 @@ function buildElements(): cytoscape.ElementDefinition[] {
 
     nodes.push({
       data: {
-        id: String(a.id), label, fullLabel: a.identifier,
+        id: String(a.id), label, fullLabel: a.displayName ? `${a.displayName} — ${a.identifier}` : a.identifier,
         type: a.type, typeLabel: ASSET_TYPE_LABELS[a.type] ?? a.type,
         assetId: a.id, deg: nodeDeg, subtype,
         isFocus: props.focusAssetId === a.id,
@@ -408,12 +414,14 @@ function buildStyle(): cytoscape.StylesheetStyle[] {
     })),
     { selector: 'node[?isSelected]', style: { 'border-color': '#22c55e', 'border-width': 3.5 } as cytoscape.Css.Node },
     { selector: 'node[?isFocus]', style: { 'border-color': '#38bdf8', 'border-width': 4, 'border-style': 'double' as any } as cytoscape.Css.Node },
-    // Merge mode: the right-clicked source node, its same-type merge candidates, and
+    // Pick mode (merge / link): the right-clicked source node, its candidates, and
     // everything else dimmed out of the way. Driven by the `mergeState` data flag
-    // (set in applyMergeHighlight()) rather than a transient class, so it isn't
+    // (set in applyPickHighlight()) rather than a transient class, so it isn't
     // clobbered by the hover-driven .faded/.highlighted toggling below.
     { selector: 'node[mergeState="source"]',    style: { 'border-color': '#d946ef', 'border-width': 4, 'border-style': 'double' as any } as cytoscape.Css.Node },
     { selector: 'node[mergeState="candidate"]', style: { 'border-color': '#e879f9', 'border-width': 3, 'border-style': 'dashed' as any } as cytoscape.Css.Node },
+    { selector: 'node[mergeState="link-source"]',    style: { 'border-color': '#0ea5e9', 'border-width': 4, 'border-style': 'double' as any } as cytoscape.Css.Node },
+    { selector: 'node[mergeState="link-candidate"]', style: { 'border-color': '#38bdf8', 'border-width': 3, 'border-style': 'dashed' as any } as cytoscape.Css.Node },
     { selector: 'node[mergeState="dim"]',       style: { 'opacity': 0.15 } as cytoscape.Css.Node },
     { selector: 'edge[mergeState="dim"]',       style: { 'opacity': 0.03 } as cytoscape.Css.Edge },
     { selector: 'node:selected',    style: { 'border-color': '#facc15', 'border-width': 3 } as cytoscape.Css.Node },
@@ -530,7 +538,7 @@ function incrementalRebuild() {
   cy.style(buildStyle());
   applyVisibility();
   cy.layout(incrementalLayout()).run();
-  applyMergeHighlight();
+  applyPickHighlight();
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────
@@ -590,46 +598,66 @@ function onCtxHide() {
   closeCtx();
 }
 function onCtxMerge() {
-  if (ctxMenu.value.asset) enterMergeMode(ctxMenu.value.asset);
+  if (ctxMenu.value.asset) enterPickMode('merge', ctxMenu.value.asset);
+  closeCtx();
+}
+function onCtxLink() {
+  if (ctxMenu.value.asset) enterPickMode('link', ctxMenu.value.asset);
   closeCtx();
 }
 
 function onKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Escape') { closeCtx(); if (mergeSourceId.value != null) exitMergeMode(); }
+  if (e.key === 'Escape') { closeCtx(); if (pick.value) exitPickMode(); }
 }
 
-// ── Merge mode ────────────────────────────────────────────────────────────
-// Right-click → "Merge with…" enters a mode where every other same-type node
-// is highlighted as a clickable merge target; clicking one emits 'nodeMerge'
-// with (source, target) so the parent can open the merge dialog directly —
-// no separate picker UI needed.
-const mergeSourceId = ref<number | null>(null);
+// ── Pick mode (merge / link) ──────────────────────────────────────────────
+// Right-click → "Merge with…" / "Link to…" enters a mode where every valid
+// counterpart is highlighted as a clickable target; clicking one emits
+// 'nodeMerge' / 'nodeLink' with (source, target) so the parent opens the
+// matching dialog directly — no separate picker UI needed.
+// Merge candidates share the source's type; link candidates are any type the
+// link matrix allows manually in either direction.
+type PickKind = 'merge' | 'link';
+const pick = ref<{ kind: PickKind; sourceId: number; candidateTypes: Set<string> } | null>(null);
 
-function enterMergeMode(asset: Asset) {
-  mergeSourceId.value = asset.id;
-  applyMergeHighlight();
+async function enterPickMode(kind: PickKind, asset: Asset) {
+  let candidateTypes = new Set([asset.type]);
+  if (kind === 'link') {
+    try {
+      candidateTypes = linkableTypes(await loadLinkTypes(), asset.type);
+    } catch {
+      candidateTypes = new Set();
+    }
+  }
+  pick.value = { kind, sourceId: asset.id, candidateTypes };
+  applyPickHighlight();
 }
-function exitMergeMode() {
-  mergeSourceId.value = null;
-  applyMergeHighlight();
+function exitPickMode() {
+  pick.value = null;
+  applyPickHighlight();
 }
-const mergeSourceAsset = computed(() => props.assets.find((a) => a.id === mergeSourceId.value) ?? null);
-function applyMergeHighlight() {
+const pickSourceAsset = computed(() => pick.value ? props.assets.find((a) => a.id === pick.value!.sourceId) ?? null : null);
+const pickCandidateLabels = computed(() =>
+  pick.value ? [...pick.value.candidateTypes].map((t) => ASSET_TYPE_LABELS[t] ?? t).join(', ') : '');
+
+function applyPickHighlight() {
   if (!cy) return;
-  const activeId = mergeSourceId.value;
-  if (activeId == null) {
+  const p = pick.value;
+  if (!p) {
     cy.nodes('[assetId]').forEach((n) => { n.data('mergeState', null); });
     cy.nodes('[type="node-group"]').forEach((n) => { n.data('mergeState', null); });
     cy.edges().forEach((e) => { e.data('mergeState', null); });
     return;
   }
-  const sourceType = props.assets.find((a) => a.id === activeId)?.type;
+  const prefix = p.kind === 'link' ? 'link-' : '';
   cy.nodes('[assetId]').forEach((n) => {
     const id = n.data('assetId') as number;
     const type = n.data('type') as string;
-    n.data('mergeState', id === activeId ? 'source' : type === sourceType ? 'candidate' : 'dim');
+    n.data('mergeState', id === p.sourceId ? prefix + 'source' : p.candidateTypes.has(type) ? prefix + 'candidate' : 'dim');
   });
-  cy.nodes('[type="node-group"]').forEach((n) => { n.data('mergeState', 'dim'); });
+  cy.nodes('[type="node-group"]').forEach((n) => {
+    n.data('mergeState', p.candidateTypes.has(n.data('nodeType')) ? prefix + 'candidate' : 'dim');
+  });
   cy.edges().forEach((e) => { e.data('mergeState', 'dim'); });
 }
 
@@ -717,16 +745,18 @@ function bindEvents() {
     const n = evt.target as NodeSingular;
     const asset = props.assets.find((a) => a.id === n.data('assetId'));
     if (!asset) return;
-    if (mergeSourceId.value != null) {
-      const sourceAsset = props.assets.find((a) => a.id === mergeSourceId.value);
-      if (!sourceAsset) { exitMergeMode(); return; }
-      if (asset.id === sourceAsset.id) { exitMergeMode(); return; } // tapping the source again cancels
-      if (asset.type === sourceAsset.type) {
-        emit('nodeMerge', sourceAsset, asset);
-        exitMergeMode();
+    if (pick.value) {
+      const p = pick.value;
+      const sourceAsset = pickSourceAsset.value;
+      if (!sourceAsset) { exitPickMode(); return; }
+      if (asset.id === sourceAsset.id) { exitPickMode(); return; } // tapping the source again cancels
+      if (p.candidateTypes.has(asset.type)) {
+        if (p.kind === 'merge') emit('nodeMerge', sourceAsset, asset);
+        else emit('nodeLink', sourceAsset, asset);
+        exitPickMode();
       }
-      // tapping a non-candidate (wrong type) node is a no-op — stay in merge mode so a
-      // slight miss-click doesn't force the user to reopen the context menu.
+      // tapping a non-candidate node is a no-op — stay in pick mode so a slight
+      // miss-click doesn't force the user to reopen the context menu.
       return;
     }
     emit('nodeClick', asset);
@@ -734,11 +764,10 @@ function bindEvents() {
 
   cy.on('tap', 'node[type="node-group"]', (evt) => {
     const g = evt.target as NodeSingular;
-    if (mergeSourceId.value != null) {
-      const sourceAsset = props.assets.find((a) => a.id === mergeSourceId.value);
-      if (sourceAsset && g.data('nodeType') === sourceAsset.type) {
-        // Group of merge candidates — expand it so the individual nodes become clickable,
-        // instead of silently canceling merge mode.
+    if (pick.value) {
+      if (pick.value.candidateTypes.has(g.data('nodeType'))) {
+        // Group of candidates — expand it so the individual nodes become clickable,
+        // instead of silently canceling pick mode.
         const key = g.data('groupKey') as string;
         expandedGroups.value = new Set([...expandedGroups.value, key]);
         incrementalRebuild();
@@ -754,7 +783,7 @@ function bindEvents() {
     if (evt.target === cy) {
       cy!.elements().removeClass('faded highlighted');
       closeCtx();
-      if (mergeSourceId.value != null) exitMergeMode();
+      if (pick.value) exitPickMode();
     }
   });
 
@@ -782,6 +811,8 @@ function bindEvents() {
     // Layout-only edges, and edges redirected to a collapsed group proxy, don't map to a
     // single real relationship — nothing sensible to delete/hide.
     if (etype === 'sibling' || etype === 'group_link') return;
+    // Nothing to offer → no empty menu.
+    if (props.readonly || (!props.allowHideRelationship && !props.allowDeleteRelationship)) return;
     const fromId = e.source().data('assetId') as number | undefined;
     const toId   = e.target().data('assetId') as number | undefined;
     if (fromId == null || toId == null) return;
@@ -911,7 +942,7 @@ function showAll()     { hiddenTypes.value = new Set(); applyVisibility(); cy?.l
     <!-- Merge-mode banner -->
     <transition name="ttip">
       <div
-        v-if="mergeSourceAsset"
+        v-if="pickSourceAsset && pick?.kind === 'merge'"
         style="position:absolute; top:48px; left:12px; z-index:10; max-width:360px;
                background:rgba(60,10,60,0.92); border:1px solid rgba(217,70,239,0.35);
                border-radius: var(--ares-radius); padding:8px 12px; font-size:0.72rem; color:rgba(255,255,255,0.85);
@@ -919,11 +950,38 @@ function showAll()     { hiddenTypes.value = new Set(); applyVisibility(); cy?.l
       >
         <i class="pi pi-arrows-h" style="color:#e879f9; margin-top:1px; flex-shrink:0;" />
         <span>
-          Merge mode — click a highlighted <strong>{{ ASSET_TYPE_LABELS[mergeSourceAsset.type] ?? mergeSourceAsset.type }}</strong>
-          asset to merge with <strong>{{ mergeSourceAsset.identifier }}</strong>, or press Esc to cancel.
+          Merge mode — click a highlighted <strong>{{ ASSET_TYPE_LABELS[pickSourceAsset.type] ?? pickSourceAsset.type }}</strong>
+          asset to merge with <strong>{{ pickSourceAsset.identifier }}</strong>, or press Esc to cancel.
         </span>
         <button
-          @click="exitMergeMode"
+          @click="exitPickMode"
+          style="background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer;
+                 font-size:0.9rem; padding:0; flex-shrink:0; line-height:1;"
+          title="Cancel"
+        >×</button>
+      </div>
+    </transition>
+
+    <!-- Link-mode banner -->
+    <transition name="ttip">
+      <div
+        v-if="pickSourceAsset && pick?.kind === 'link'"
+        style="position:absolute; top:48px; left:12px; z-index:10; max-width:360px;
+               background:rgba(8,40,60,0.92); border:1px solid rgba(14,165,233,0.35);
+               border-radius: var(--ares-radius); padding:8px 12px; font-size:0.72rem; color:rgba(255,255,255,0.85);
+               display:flex; align-items:flex-start; gap:8px; backdrop-filter:blur(6px);"
+      >
+        <i class="pi pi-link" style="color:#38bdf8; margin-top:1px; flex-shrink:0;" />
+        <span v-if="pick.candidateTypes.size">
+          Link mode — click a highlighted asset (<strong>{{ pickCandidateLabels }}</strong>)
+          to relate it to <strong>{{ pickSourceAsset.identifier }}</strong>, or press Esc to cancel.
+        </span>
+        <span v-else>
+          <strong>{{ ASSET_TYPE_LABELS[pickSourceAsset.type] ?? pickSourceAsset.type }}</strong>
+          assets have no manually creatable relationships. Press Esc to close.
+        </span>
+        <button
+          @click="exitPickMode"
           style="background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer;
                  font-size:0.9rem; padding:0; flex-shrink:0; line-height:1;"
           title="Cancel"
@@ -1056,10 +1114,13 @@ function showAll()     { hiddenTypes.value = new Set(); applyVisibility(); cy?.l
         <button v-if="ctxMenu.canCollapse" class="ctx-item" @click="onCtxCollapse">
           <i class="pi pi-minus-circle" />Collapse group
         </button>
-        <template v-if="ctxMenu.asset && !ctxMenu.isGroup">
+        <template v-if="ctxMenu.asset && !ctxMenu.isGroup && !readonly">
           <div class="ctx-separator" />
           <button class="ctx-item" @click="onCtxMerge">
             <i class="pi pi-arrows-h" />Merge with…
+          </button>
+          <button v-if="allowLink" class="ctx-item" @click="onCtxLink">
+            <i class="pi pi-link" />Link to…
           </button>
           <div v-if="allowDelete || allowHide" class="ctx-separator" />
           <button v-if="allowHide" class="ctx-item ctx-item--warn" @click="onCtxHide">

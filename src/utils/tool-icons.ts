@@ -6,6 +6,9 @@ const S = '/img/sources';
 
 /** Canonical map: tool/integration id → public icon URL */
 export const TOOL_ICON_SRC: Record<string, string> = {
+  // ── Custom / manual ───────────────────────────────────────────────────────
+  ares:         `${S}/ares.svg`,
+
   // ── Integrations ──────────────────────────────────────────────────────────
   caido:        `${S}/caido.svg`,
   'caido-api':  `${S}/caido.svg`,
@@ -60,6 +63,7 @@ export const TOOL_ICON_SRC: Record<string, string> = {
  * the outline; a real second file (black outline, same accents) is swapped in instead.
  */
 const LIGHT_ICON_SRC: Partial<Record<string, string>> = {
+  ares:  `${S}/ares-light.svg`,
   trivy: `${S}/trivy-light.svg`,
   fortirecon: `${S}/fortirecon-light.svg`,
   shodan: `${S}/shodan-light.svg`,

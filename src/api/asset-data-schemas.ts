@@ -3,7 +3,8 @@ import {
 } from '@/api/assets';
 import {
   validateHostname, validateMac, validatePort, validateChannel, validateStatusCode,
-  validateSafeText, validateNonNegativeInt, validateIp,
+  validateSafeText, validateNonNegativeInt, validateIp, validateUrl,
+  validateAssetIdentifier,
 } from '@/utils/validators';
 import { httpStatusSeverity } from '@/utils/http-status';
 
@@ -40,11 +41,40 @@ function safeText(maxLen = 200) {
   return (v: string) => validateSafeText(v, maxLen);
 }
 
-/** "Name" is always the first Data row, mirroring asset.identifier. For web_application it's
- *  read-only because its value is governed by the Base URLs list (primary = first item). */
+/** The identifier row, mirroring asset.identifier. Only a host's Name is editable: for every
+ *  other type the identifier is how imports recognize the asset (renaming would fork it on the
+ *  next scan — use Display name), and a web application's follows its primary Base URL. */
 export function nameField(type: string): DataFieldDef {
-  if (type === 'web_application') return { key: 'identifier', label: 'Name', editor: 'readonly' };
-  return { key: 'identifier', label: 'Name', editor: 'text', validate: safeText(500) };
+  if (type === 'host') {
+    return { key: 'identifier', label: 'Name', editor: 'text', validate: (v: string) => validateAssetIdentifier(type, v) };
+  }
+  return { key: 'identifier', label: type === 'text_data' ? 'Value' : 'Identifier', editor: 'readonly' };
+}
+
+/** User label for every type except host (whose Name is already user-owned/pinnable).
+ *  Top-level asset field, not metadata — imports never touch it. */
+export function displayNameField(): DataFieldDef {
+  return { key: 'displayName', label: 'Display name', editor: 'text', validate: (v) => (v.trim() ? validateSafeText(v, 200) : null) };
+}
+
+/** Classifies a DNS TXT record value by its well-known prefix (derived, never stored). */
+export function classifyTxtRecord(value: string): string {
+  const v = value.trim().replace(/^"+/, '');
+  if (/^v=spf1\b/i.test(v)) return 'SPF';
+  if (/^v=DMARC1\b/i.test(v)) return 'DMARC';
+  if (/^v=DKIM1\b/i.test(v) || /\bk=rsa;\s*p=/i.test(v)) return 'DKIM';
+  if (/^v=STSv1\b/i.test(v)) return 'MTA-STS';
+  if (/^v=TLSRPTv1\b/i.test(v)) return 'TLS-RPT';
+  if (/verification|verify/i.test(v)) return 'Domain verification';
+  return 'Other';
+}
+
+function appFields(urlLabel: string): DataFieldDef[] {
+  return [
+    { key: 'version', label: 'Version', editor: 'text', validate: safeText(50) },
+    { key: 'publisher', label: 'Publisher', editor: 'text', validate: safeText() },
+    { key: 'storeUrl', label: urlLabel, editor: 'text', validate: (v) => (v.trim() ? validateUrl(v) : null) },
+  ];
 }
 
 /** Services are identified as "<host>:<port>/<proto>" (Nmap/manual) or just "<port>/<proto>"
@@ -122,29 +152,7 @@ function typeFields(type: string, meta: Record<string, unknown>): DataFieldDef[]
     case 'web_application':
       return [
         { key: 'baseUrls', label: 'Base URLs', editor: 'url-list' },
-        { key: 'name', label: 'Display name', editor: 'text', validate: safeText() },
         { key: 'rootPath', label: 'Root path', editor: 'text', validate: safeText() },
-      ];
-    case 'url':
-      return [
-        { key: 'host', label: 'Host', editor: 'text', validate: safeText() },
-        { key: 'path', label: 'Path', editor: 'text', validate: safeText() },
-        { key: 'statusCode', label: 'Status code', editor: 'text', validate: validateStatusCode, chipColor: httpStatusSeverity },
-        { key: 'contentType', label: 'Content-Type', editor: 'text', validate: safeText() },
-        { key: 'title', label: 'Page title', editor: 'text', validate: safeText() },
-      ];
-    case 'app':
-      return [
-        { key: 'version', label: 'Version', editor: 'text', validate: safeText() },
-        { key: 'platform', label: 'Platform', editor: 'text', validate: safeText() },
-        { key: 'url', label: 'URL', editor: 'readonly' },
-      ];
-    case 'cloud_resource':
-      return [
-        { key: 'provider', label: 'Provider', editor: 'text', validate: safeText() },
-        { key: 'region', label: 'Region', editor: 'text', validate: safeText() },
-        { key: 'resourceType', label: 'Resource type', editor: 'text', validate: safeText() },
-        { key: 'resourceId', label: 'Resource ID', editor: 'readonly' },
       ];
     case 'web_endpoint':
       return [
@@ -156,6 +164,102 @@ function typeFields(type: string, meta: Record<string, unknown>): DataFieldDef[]
         { key: 'redirectLocations', label: 'Redirect locations', editor: 'chip-list', validate: safeText(500) },
         { key: 'sources', label: 'Discovered from', editor: 'chip-list', validate: safeText(500) },
       ];
+    case 'email':
+      return [
+        { key: 'domainPart', label: 'Domain', editor: 'readonly' },
+        { key: 'sources', label: 'Sources', editor: 'chip-list', validate: safeText(100) },
+        { key: 'breached', label: 'Breached', editor: 'readonly' },
+      ];
+    case 'credential':
+      return [
+        { key: 'credentialType', label: 'Type', editor: 'select', options: [
+          { label: 'Password', value: 'password' },
+          { label: 'Hash', value: 'hash' },
+          { label: 'API Key', value: 'api_key' },
+          { label: 'Token', value: 'token' },
+          { label: 'Certificate', value: 'certificate' },
+          { label: 'Other', value: 'other' },
+        ]},
+        { key: 'username', label: 'Username', editor: 'text', validate: safeText() },
+        { key: 'strength', label: 'Strength', editor: 'select', options: [
+          { label: 'Weak', value: 'weak' },
+          { label: 'Medium', value: 'medium' },
+          { label: 'Strong', value: 'strong' },
+          { label: 'Unknown', value: 'unknown' },
+        ]},
+        { key: 'source', label: 'Source', editor: 'text', validate: safeText() },
+      ];
+    case 'person':
+      return [
+        { key: 'role', label: 'Role / Title', editor: 'text', validate: safeText() },
+        { key: 'department', label: 'Department', editor: 'text', validate: safeText() },
+        { key: 'linkedin', label: 'LinkedIn', editor: 'text', validate: safeText(500) },
+        { key: 'sources', label: 'Sources', editor: 'chip-list', validate: safeText(100) },
+      ];
+    case 'system':
+      return [
+        { key: 'systemType', label: 'Type', editor: 'select', options: [
+          { label: 'ERP', value: 'erp' },
+          { label: 'CRM', value: 'crm' },
+          { label: 'Active Directory', value: 'ad' },
+          { label: 'Kubernetes', value: 'k8s' },
+          { label: 'Database', value: 'database' },
+          { label: 'Mail Server', value: 'mail' },
+          { label: 'Other', value: 'other' },
+        ]},
+        { key: 'vendor', label: 'Vendor', editor: 'text', validate: safeText() },
+        { key: 'version', label: 'Version', editor: 'text', validate: safeText() },
+      ];
+    case 'directory':
+      return [
+        { key: 'directoryType', label: 'Type', editor: 'select', options: [
+          { label: 'Active Directory', value: 'ad' },
+          { label: 'Azure AD / Entra ID', value: 'aad' },
+          { label: 'LDAP', value: 'ldap' },
+          { label: 'Okta', value: 'okta' },
+          { label: 'Other', value: 'other' },
+        ]},
+        { key: 'forestName', label: 'Forest / Domain', editor: 'text', validate: safeText() },
+        { key: 'functionalLevel', label: 'Functional level', editor: 'text', validate: safeText() },
+      ];
+    case 'network':
+      return [
+        { key: 'description', label: 'Description', editor: 'text', validate: safeText(500) },
+      ];
+    // httpx/katana only set the identifier (the tech name); Trivy also writes name/version/relationship.
+    case 'technology':
+      return [
+        { key: 'name', label: 'Product', editor: 'text', validate: safeText() },
+        { key: 'version', label: 'Version', editor: 'text', validate: safeText(50) },
+        { key: 'category', label: 'Category', editor: 'text', validate: safeText(100) },
+        { key: 'cpe', label: 'CPE', editor: 'text', validate: safeText() },
+        { key: 'relationship', label: 'Dependency', editor: 'readonly' },
+      ];
+    // Trivy: version/purl/target/packageType.
+    case 'software':
+      return [
+        { key: 'version', label: 'Version', editor: 'text', validate: safeText(50) },
+        { key: 'packageType', label: 'Ecosystem', editor: 'readonly' },
+        { key: 'purl', label: 'Package URL', editor: 'readonly' },
+        { key: 'target', label: 'Scan target', editor: 'readonly' },
+      ];
+    case 'android_app':
+      return appFields('Play Store URL');
+    case 'ios_app':
+      return appFields('App Store URL');
+    case 'windows_app':
+      return appFields('Download URL');
+    case 'hardware':
+      return [
+        { key: 'vendor', label: 'Vendor', editor: 'text', validate: safeText() },
+        { key: 'model', label: 'Model', editor: 'text', validate: safeText() },
+        { key: 'firmware', label: 'Firmware version', editor: 'text', validate: safeText(100) },
+        { key: 'serial', label: 'Serial number', editor: 'text', validate: safeText(100) },
+      ];
+    case 'text_data':
+      return [
+        { key: 'txtKind', label: 'Kind', editor: 'readonly' },
+      ];
     default:
       return [];
   }
@@ -163,5 +267,6 @@ function typeFields(type: string, meta: Record<string, unknown>): DataFieldDef[]
 
 /** Full Data field list for the given asset type — "Name" first, then type-specific fields. */
 export function dataFieldsFor(type: string, meta: Record<string, unknown>): DataFieldDef[] {
-  return [nameField(type), ...typeFields(type, meta)];
+  if (type === 'host') return [nameField(type), ...typeFields(type, meta)];
+  return [displayNameField(), nameField(type), ...typeFields(type, meta)];
 }

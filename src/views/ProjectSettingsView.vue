@@ -13,7 +13,7 @@ import Tab from 'primevue/tab';
 import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
 import AresBadge from '@/components/AresBadge.vue';
-import { projectsApi, isMonitoring, ITERATION_CADENCES, type Project, type MonitorStats } from '@/api/projects';
+import { projectsApi, isMonitoring, ITERATION_CADENCES, type Project, type MonitorStats, type ProjectIterationDto } from '@/api/projects';
 import { type UserSummary } from '@/api/users';
 import { useContextStore } from '@/stores/context';
 import { useAuthStore } from '@/stores/auth';
@@ -46,6 +46,10 @@ const isMonitor = computed(() => isMonitoring(project.value?.typeCode, project.v
 
 // ── Iteration status / manual approval ──────────────────────────────────────
 const iterationInfo = ref<MonitorStats | null>(null);
+const iterations = ref<ProjectIterationDto[]>([]);
+const iterationsLoading = ref(false);
+const iterationSaving = ref<string | null>(null);
+const iterationSaveError = ref('');
 const approving = ref(false);
 const approveError = ref('');
 
@@ -54,10 +58,57 @@ async function approveIteration() {
   approveError.value = '';
   try {
     iterationInfo.value = await projectsApi.approveIteration(engId.value);
+    await loadIterations();
   } catch (e: any) {
     approveError.value = e?.response?.data?.detail ?? e?.message ?? 'Failed to approve iteration';
   } finally {
     approving.value = false;
+  }
+}
+
+async function loadIterations() {
+  iterationsLoading.value = true;
+  try {
+    iterations.value = await projectsApi.listIterations(engId.value);
+  } finally {
+    iterationsLoading.value = false;
+  }
+}
+
+async function saveIterationDate(label: string, field: 'actualStart' | 'actualEnd', dateObj: Date | null) {
+  if (!dateObj) return;
+  iterationSaving.value = label;
+  iterationSaveError.value = '';
+  try {
+    const dateStr = toLocalDateStr(dateObj);
+    const updated = await projectsApi.updateIteration(engId.value, label, { [field]: dateStr });
+    const idx = iterations.value.findIndex((i) => i.label === label);
+    if (idx >= 0) iterations.value[idx] = updated;
+    await loadIterations();
+  } catch (e: any) {
+    iterationSaveError.value = e?.response?.data?.detail ?? e?.message ?? 'Failed to update iteration date';
+  } finally {
+    iterationSaving.value = null;
+  }
+}
+
+function iterationStatusSeverity(status: string): 'info' | 'success' | 'warn' | 'secondary' {
+  switch (status) {
+    case 'active': return 'success';
+    case 'extended': return 'warn';
+    case 'closed': return 'secondary';
+    case 'future': return 'info';
+    default: return 'secondary';
+  }
+}
+
+function iterationStatusLabel(status: string): string {
+  switch (status) {
+    case 'active': return 'Active';
+    case 'extended': return 'Extended';
+    case 'closed': return 'Closed';
+    case 'future': return 'Future';
+    default: return status;
   }
 }
 
@@ -119,6 +170,7 @@ async function load() {
     };
     if (isMonitor.value) {
       iterationInfo.value = await projectsApi.monitorStats(engId.value);
+      await loadIterations();
     }
   } finally {
     loading.value = false;
@@ -285,6 +337,65 @@ onMounted(load);
                 <Button label="Approve" size="small" :loading="approving" @click="approveIteration" />
               </div>
               <Message v-if="approveError" severity="error" :closable="false">{{ approveError }}</Message>
+            </div>
+
+            <!-- Iterations table (MONITOR projects only) -->
+            <div v-if="isMonitor && iterations.length > 0" class="ares-card" style="max-width:none;">
+              <div style="font-size:0.8rem; font-weight:600; color:var(--ares-text-muted); margin-bottom:0.6rem;">Iterations</div>
+              <Message v-if="iterationSaveError" severity="error" :closable="false" style="margin-bottom:0.5rem;">{{ iterationSaveError }}</Message>
+              <div style="overflow-x:auto;">
+                <table class="iter-table">
+                  <thead>
+                    <tr>
+                      <th>Label</th>
+                      <th>Planned start</th>
+                      <th>Planned end</th>
+                      <th>Actual start</th>
+                      <th>Actual end</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="it in iterations" :key="it.label" :class="{ 'iter-extended': it.status === 'extended', 'iter-active': it.status === 'active' }">
+                      <td style="font-weight:600;">{{ it.label }}</td>
+                      <td>{{ it.plannedStart }}</td>
+                      <td>{{ it.plannedEnd }}</td>
+                      <td>
+                        <DatePicker
+                          :model-value="parseDateStr(it.actualStart)"
+                          date-format="yy-mm-dd"
+                          placeholder="—"
+                          :first-day-of-week="1"
+                          append-to="body"
+                          class="iter-date-picker"
+                          :disabled="iterationSaving === it.label"
+                          @update:model-value="(v: any) => saveIterationDate(it.label, 'actualStart', v instanceof Date ? v : null)"
+                        />
+                      </td>
+                      <td>
+                        <DatePicker
+                          v-if="it.status === 'closed'"
+                          :model-value="parseDateStr(it.actualEnd)"
+                          date-format="yy-mm-dd"
+                          placeholder="—"
+                          :first-day-of-week="1"
+                          append-to="body"
+                          class="iter-date-picker"
+                          :disabled="iterationSaving === it.label"
+                          @update:model-value="(v: any) => saveIterationDate(it.label, 'actualEnd', v instanceof Date ? v : null)"
+                        />
+                        <span v-else-if="it.status === 'extended'" style="font-size:0.78rem; color:var(--p-amber-500);">
+                          {{ it.effectiveEnd }} (sliding)
+                        </span>
+                        <span v-else style="color:var(--ares-text-muted);">—</span>
+                      </td>
+                      <td>
+                        <AresBadge :value="iterationStatusLabel(it.status)" :severity="iterationStatusSeverity(it.status)" style="font-size:0.75rem;" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <Message v-if="saveError" severity="error" :closable="false">{{ saveError }}</Message>
@@ -466,4 +577,33 @@ onMounted(load);
   font-style: italic;
   text-align: center;
 }
+.iter-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.iter-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ares-text-muted);
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--ares-border);
+}
+.iter-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ares-border) 50%, transparent);
+  white-space: nowrap;
+}
+.iter-table tr:last-child td { border-bottom: none; }
+.iter-extended td {
+  background: color-mix(in srgb, var(--p-amber-500) 8%, transparent);
+}
+.iter-active td {
+  background: color-mix(in srgb, var(--p-green-500) 6%, transparent);
+}
+.iter-date-picker { max-width: 130px; font-size: 0.82rem; }
+.iter-date-picker :deep(input) { font-size: 0.82rem; padding: 0.25rem 0.5rem; }
 </style>

@@ -59,6 +59,7 @@ export interface Report {
   id: number;
   organizationId: number;
   projectId: number | null;
+  projectName: string | null;
   type: string;
   format: string;
   status: string;
@@ -192,6 +193,36 @@ export const reportTemplatesApi = {
   },
 };
 
+// ── Report preview ───────────────────────────────────────────────────────────
+
+export interface PreviewFinding {
+  id: number;
+  code: string;
+  title: string;
+  severity: string;
+  statusName: string;
+  defaultScore?: { type: string; score: number; vector?: string };
+}
+
+export interface PreviewSection {
+  variable: string;
+  label: string;
+  findings: PreviewFinding[];
+}
+
+export interface ReportPreview {
+  organization?: { id: number; name: string; slug: string };
+  report: { id: number; title: string; status: string; createdAt: string };
+  project?: { id: number; name: string; code: string; startDate: string | null; endDate: string | null };
+  team: { userId: number; role: string; displayName: string; email: string }[];
+  fields: Record<string, string>;
+  resolvedFields: Record<string, string>;
+  findings: Record<string, unknown>[];
+  sections: PreviewSection[];
+  charts: { pie?: string; bar?: string };
+  detections?: Record<string, unknown>[];
+}
+
 // ── Reports ───────────────────────────────────────────────────────────────────
 
 export const reportsApi = {
@@ -232,6 +263,9 @@ export const reportsApi = {
    *  rendering a DOCX. Only valid for a single-finding report (see `Report.findingCount`). */
   sendEmail(id: number, body: { emailTemplateId: number; integrationId: number; to: string[]; cc?: string[]; bcc?: string[] }) {
     return apiClient.post<void>(`/reports/${id}/send-email`, body).then(() => {});
+  },
+  preview(id: number) {
+    return apiClient.get<ReportPreview>(`/reports/${id}/preview`).then((r) => r.data);
   },
   exportJson(id: number) {
     return apiClient.get<Blob>(`/reports/${id}/export-json`, { responseType: 'blob' }).then((r) => r.data);

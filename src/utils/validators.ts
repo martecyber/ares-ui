@@ -108,3 +108,64 @@ export function validateSafeTextRequired(s: string, maxLen = 200): string | null
   if (!v) return 'This field cannot be empty.';
   return validateSafeText(s, maxLen);
 }
+
+/** Manual-entry limits, mirroring backend AssetIdentifierRules.maxLength (the column is TEXT). */
+export const ASSET_IDENTIFIER_MAX = 255;
+export const TEXT_DATA_IDENTIFIER_MAX = 4096;
+
+export function assetIdentifierMaxLength(type: string): number {
+  return type === 'text_data' ? TEXT_DATA_IDENTIFIER_MAX : ASSET_IDENTIFIER_MAX;
+}
+
+const DNS_LABEL_RE = /^[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$/i;
+
+/** Domain syntax as the backend accepts it: optional "*." wildcard, underscores, single labels. */
+function validateDomainIdentifier(v: string): string | null {
+  const d = v.replace(/\.$/, '');
+  if (isValidIpLiteral(d)) return 'That is an IP address — use the IP type.';
+  if (d.includes('/')) return 'Use a bare hostname, without scheme or path.';
+  const labels = d.startsWith('*.') ? d.slice(2) : d;
+  if (!labels || d.length > 253 || !labels.split('.').every((l) => DNS_LABEL_RE.test(l))) return 'Not a valid domain.';
+  return null;
+}
+
+/**
+ * Client-side mirror of the backend AssetIdentifierRules, for immediate feedback on manual
+ * asset entry. The backend stays authoritative (it also normalizes case/whitespace).
+ */
+export function validateAssetIdentifier(type: string, s: string): string | null {
+  const v = s.trim();
+  if (!v) return 'Identifier is required.';
+  const max = assetIdentifierMaxLength(type);
+  if (v.length > max) return `Must be ${max} characters or fewer.`;
+  switch (type) {
+    case 'ip':
+      return isValidIpLiteral(v) ? null : 'Not a valid IPv4 or IPv6 address.';
+    case 'network': {
+      const m = v.match(/^(.+?)\s*\/\s*(\d{1,3})$/);
+      if (!m) return 'Use CIDR notation, e.g. 192.168.1.0/24.';
+      if (!isValidIpLiteral(m[1])) return 'Not a valid network address.';
+      const max = m[1].includes(':') ? 128 : 32;
+      return Number(m[2]) <= max ? null : `Prefix length must be between 0 and ${max}.`;
+    }
+    case 'domain':
+      return validateDomainIdentifier(v);
+    case 'email': {
+      const at = v.lastIndexOf('@');
+      if (at < 1 || at === v.length - 1 || /\s/.test(v.slice(0, at))) return 'Not a valid email address.';
+      const dom = v.slice(at + 1);
+      return dom.startsWith('*.') || validateDomainIdentifier(dom) ? 'Not a valid email address.' : null;
+    }
+    case 'service': {
+      const m = v.match(/^(.+):(\d{1,5})\/([a-z0-9]+)$/i);
+      if (!m) return 'Expected host:port/protocol, e.g. 10.0.0.1:443/tcp.';
+      if (!isValidIpLiteral(m[1]) && validateDomainIdentifier(m[1])) return 'Not a valid host or IP.';
+      return validatePort(m[2]);
+    }
+    case 'web_application':
+    case 'web_endpoint':
+      return validateUrl(v);
+    default:
+      return containsUnsafeChars(v) ? 'Contains characters that are not allowed.' : null;
+  }
+}

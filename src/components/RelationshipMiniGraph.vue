@@ -217,7 +217,7 @@ function buildGraph() {
       nodes.push({
         data: {
           id: String(r.relatedAssetId),
-          label: nodeLabel(r.relatedType, r.relatedIdentifier),
+          label: r.relatedDisplayName ? truncate(r.relatedDisplayName) : nodeLabel(r.relatedType, r.relatedIdentifier),
           type: r.relatedType,
           isCenter: false,
           deg: degree.get(r.relatedAssetId) ?? 1,

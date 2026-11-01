@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import Button from 'primevue/button';
 import AresBadge from '@/components/AresBadge.vue';
 import Select from 'primevue/select';
@@ -17,6 +17,7 @@ import GenerateReportDialog from '@/components/GenerateReportDialog.vue';
 import ColumnHeader from '@/components/ColumnHeader.vue';
 
 const route = useRoute();
+const router = useRouter();
 const context = useContextStore();
 const toast = useToast();
 
@@ -298,6 +299,10 @@ onMounted(async () => {
             <td style="font-size:0.8rem; color:var(--ares-text-muted);">{{ r.createdAt.slice(0, 10) }}</td>
             <td>
               <div style="display:flex; align-items:center; gap:0.2rem; justify-content:flex-end; padding-right:0.5rem;">
+                <!-- Preview -->
+                <Button icon="pi pi-eye" size="small" severity="secondary" text
+                  title="Preview report" style="padding:0.25rem;"
+                  @click="router.push({ name: 'org-report-preview', params: { orgId, id: r.id } })" />
                 <!-- Generate document -->
                 <Button icon="pi pi-file-word" size="small" severity="secondary" text
                   title="Generate document from template"

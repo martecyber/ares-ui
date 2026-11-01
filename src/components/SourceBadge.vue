@@ -9,6 +9,7 @@ defineProps<{ source: string | null }>();
 // residual set; an entry here for something that DOES have a dynamic label just adds a fallback
 // that's never reached (toolLabel() is checked first below).
 const LABELS: Record<string, string> = {
+  ares:         'Ares',
   nmap:         'Nmap',
   burp:         'Burp Suite',
   wpscan:       'WPScan',

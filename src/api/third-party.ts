@@ -20,7 +20,7 @@ export interface KbThirdPartyEntryForm {
   enabled?: boolean;
 }
 
-export const KB_TP_KINDS = ['domain', 'domain_wildcard', 'url', 'url_wildcard', 'ip', 'cidr', 'text_contains'] as const;
+export const KB_TP_KINDS = ['domain', 'domain_wildcard', 'url', 'url_wildcard', 'ip', 'cidr', 'text_contains', 'email_domain'] as const;
 export const KB_TP_CATEGORIES = ['social_media', 'cdn', 'analytics', 'advertising', 'cloud', 'payment', 'other'] as const;
 
 export const kbThirdPartyApi = {

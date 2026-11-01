@@ -184,6 +184,7 @@ function apply() {
           @click="toggle(a.id)"
         >
           <div class="asset-row-body">
+            <span v-if="a.displayName" class="asset-row-name">{{ a.displayName }}</span>
             <span class="asset-row-ident">{{ a.identifier }}</span>
             <span class="asset-row-type">{{ ASSET_TYPE_LABELS[a.type] ?? a.type }}</span>
             <code v-if="a.code" class="asset-row-code">{{ a.code }}</code>
@@ -230,6 +231,10 @@ function apply() {
 </template>
 
 <style scoped>
+.asset-row-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
 .chips-bar {
   display: flex;
   align-items: flex-start;

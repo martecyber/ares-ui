@@ -20,6 +20,9 @@ export interface Asset {
   /** Only meaningful when type === 'host'. When false, `identifier` ("Name") is auto-derived
    *  from `hostnames` (or a "host-{ip}" fallback); when true, a user has pinned it manually. */
   nameOverride?: boolean;
+  /** Optional user label for any type, shown instead of the identifier (which stays the
+   *  import dedup key). Never written by imports. */
+  displayName?: string | null;
   tags?: Tag[];
 }
 
@@ -58,7 +61,6 @@ export interface AssetRelationship {
   fromAssetId: number;
   toAssetId: number;
   type: string;
-  directional: boolean;
   createdAt: string;
 }
 
@@ -66,6 +68,7 @@ export interface AssetRelationshipDetail {
   relatedAssetId: number;
   relatedCode: string;
   relatedIdentifier: string;
+  relatedDisplayName?: string | null;
   relatedType: string;
   linkType: string;
   direction: 'outgoing' | 'incoming';
@@ -120,6 +123,14 @@ export interface AssetToolSighting {
 
 /** Organization-level view of an asset's discovery history — which PROJECTS have seen it, never
  *  which tool each one used (that detail is exclusive to the project itself). */
+/** A source tool's own id for an asset (Tenable asset.id, CrowdStrike device_id, …) — what keeps
+ *  integration re-syncs from duplicating it. Staff-only. */
+export interface AssetExternalId {
+  tool: string;
+  externalId: string;
+  createdAt: string;
+}
+
 export interface AssetToolSightingProject {
   projectId: number;
   projectName: string;
@@ -134,7 +145,7 @@ export const ASSET_TYPES = [
   'system', 'directory', 'network',
   'android_app', 'ios_app', 'windows_app',
   'hardware', 'software',
-  'text_data', 'email', 'credential', 'person', 'location',
+  'text_data', 'email', 'credential', 'person',
 ] as const;
 
 export type AssetTypeKey = typeof ASSET_TYPES[number];
@@ -160,7 +171,6 @@ export const ASSET_TYPE_LABELS: Record<string, string> = {
   email:           'Email Address',
   credential:      'Credential',
   person:          'Person',
-  location:        'Location',
 };
 
 export const ASSET_TYPE_ICONS: Record<string, string> = {
@@ -184,24 +194,16 @@ export const ASSET_TYPE_ICONS: Record<string, string> = {
   email:           'pi-envelope',
   credential:      'pi-key',
   person:          'pi-user',
-  location:        'pi-map-marker',
 };
 
-export const ASSET_LINK_TYPES: Partial<Record<string, string[]>> = {
-  host:            ['host_interface', 'host_technology'],
-  interface:       ['interface_ip', 'interface_service', 'interface_access_point'],
-  domain:          ['domain_cname', 'domain_a', 'domain_aaaa', 'domain_mx', 'domain_ns', 'domain_txt', 'domain_ptr', 'domain_soa', 'domain_caa', 'domain_srv', 'domain_host'],
-  web_application: ['webapp_service', 'webapp_domain', 'webapp_endpoint', 'webapp_technology'],
-  web_endpoint:    ['endpoint_child', 'endpoint_technology'],
-  system:          ['system_host'],
-  directory:       ['directory_domain', 'directory_host'],
-  network:         ['network_subnet', 'network_ip'],
-  android_app:     ['app_technology'],
-  ios_app:         ['app_technology'],
-  windows_app:     ['app_technology'],
-  hardware:        ['hardware_host'],
-  software:        ['software_technology'],
-};
+/** One row of the backend AssetLinkType matrix (GET /assets/link-types). */
+export interface AssetLinkTypeDef {
+  linkType: string;
+  fromType: string;
+  toTypes: string[];
+  /** false for links the platform computes itself (subdomain hierarchy, CIDR containment). */
+  manual: boolean;
+}
 
 export const ASSET_LINK_LABELS: Record<string, string> = {
   host_interface:      'Has interface',
@@ -220,6 +222,8 @@ export const ASSET_LINK_LABELS: Record<string, string> = {
   domain_caa:          'CAA record →',
   domain_srv:          'SRV record →',
   domain_host:         'Local host →',
+  domain_subdomain:    'Subdomain →',
+  domain_email:        'Email address →',
   webapp_service:      'Hosted on service →',
   webapp_domain:       'Served via domain →',
   webapp_endpoint:     'Root endpoint →',
@@ -227,13 +231,20 @@ export const ASSET_LINK_LABELS: Record<string, string> = {
   endpoint_child:      'Child endpoint →',
   endpoint_technology: 'Uses technology',
   system_host:         'Comprises →',
+  system_service:      'Exposes service →',
+  system_technology:   'Uses technology',
   directory_domain:    'DNS domain →',
   directory_host:      'Domain controller →',
+  directory_person:    'User account →',
   network_subnet:      'Subnet →',
   network_ip:          'Contains IP →',
   app_technology:      'Uses technology',
   hardware_host:       'Runs host →',
   software_technology: 'Uses technology',
+  person_email:        'Has email →',
+  person_credential:   'Owns credential →',
+  email_credential:    'Has credential →',
+  service_credential:  'Credential found →',
 };
 
 export const assetsApi = {
@@ -265,15 +276,19 @@ export const assetsApi = {
     }
     return all;
   },
+  /** Asset count per type (types with zero assets are omitted). */
+  typeCounts(params: { organizationId?: number; projectId?: number }) {
+    return apiClient.get<Record<string, number>>('/assets/type-counts', { params }).then((r) => r.data);
+  },
   get(id: number) {
     return apiClient.get<Asset>(`/assets/${id}`).then((r) => r.data);
   },
   create(body: { organizationId: number; type: string; identifier: string; metadata?: string; hostSubtype?: string;
-                 hostnames?: string[] }) {
+                 hostnames?: string[]; displayName?: string }) {
     return apiClient.post<Asset>('/assets', body).then((r) => r.data);
   },
   update(id: number, body: { type?: string; identifier?: string; metadata?: string; hostSubtype?: string;
-                              hostnames?: string[]; nameOverride?: boolean }) {
+                              hostnames?: string[]; nameOverride?: boolean; displayName?: string }) {
     return apiClient.patch<Asset>(`/assets/${id}`, body).then((r) => r.data);
   },
   delete(id: number) {
@@ -299,6 +314,9 @@ export const assetsApi = {
   },
   listRelationships(id: number) {
     return apiClient.get<AssetRelationshipDetail[]>(`/assets/${id}/relationships`).then((r) => r.data);
+  },
+  linkTypes() {
+    return apiClient.get<AssetLinkTypeDef[]>('/assets/link-types').then((r) => r.data);
   },
   addRelationship(id: number, body: { toAssetId: number; linkType: string }) {
     return apiClient.post<AssetRelationship>(`/assets/${id}/relationships`, body).then((r) => r.data);
@@ -348,6 +366,10 @@ export const assetsApi = {
   // isolation rationale on the backend (AssetToolSighting.java).
   listToolSightings(assetId: number, projectId: number) {
     return apiClient.get<AssetToolSighting[]>(`/assets/${assetId}/tool-sightings`, { params: { projectId } }).then((r) => r.data);
+  },
+
+  listExternalIds(assetId: number) {
+    return apiClient.get<AssetExternalId[]>(`/assets/${assetId}/external-ids`).then((r) => r.data);
   },
 
   // Organization context — which projects have discovered this asset, never which tool.

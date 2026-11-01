@@ -151,6 +151,8 @@ function selectOrg(org: Organization) {
     router.push({ name: 'org-findings', params: { orgId: org.id } });
   } else if (['org-assets', 'org-asset-detail'].includes(current)) {
     router.push({ name: 'org-assets', params: { orgId: org.id } });
+  } else if (['org-reports', 'org-report-preview'].includes(current)) {
+    router.push({ name: 'org-reports', params: { orgId: org.id } });
   } else if (current === 'org-projects') {
     router.push({ name: 'org-projects', params: { orgId: org.id } });
   } else {
@@ -235,7 +237,7 @@ onMounted(async () => {
 // ── Layout context ─────────────────────────────────────────────────
 type SidebarMode = 'none' | 'org' | 'project' | 'admin' | 'kb' | 'dashboard';
 
-const ORG_ROUTES    = new Set(['organization-detail','org-projects','org-findings','org-finding-detail','org-assets','org-asset-detail','org-detection-detail','org-workflows','org-workflow-editor','org-settings']);
+const ORG_ROUTES    = new Set(['organization-detail','org-projects','org-findings','org-finding-detail','org-assets','org-asset-detail','org-detection-detail','org-workflows','org-workflow-editor','org-settings','org-reports','org-report-preview']);
 const DASHBOARD_ROUTES = new Set(['dashboard', 'dashboard-presentations']);
 
 const sidebarMode = computed((): SidebarMode => {
@@ -335,6 +337,20 @@ watch([engId, allProjects], ([id, projects]) => {
   if (found) context.setProject({ id: found.id, name: found.name, code: found.code, typeCode: found.typeCode ?? null, supertypeCode: found.supertypeCode ?? null, clientsCanViewDetections: found.clientsCanViewDetections ?? false });
 }, { immediate: true });
 
+// Clear stale org/project context when leaving scoped routes (e.g. navigating
+// back to the platform dashboard). Client users always keep their single org.
+watch(() => route.name, () => {
+  const hasOrg = !!Number(route.params.orgId) || !!Number(route.params.id);
+  const hasProject = !!Number(route.params.engId);
+
+  if (!hasOrg && !auth.isClient) {
+    context.clear();
+    allProjects.value = [];
+  } else if (hasOrg && !hasProject) {
+    context.clearProject();
+  }
+});
+
 const orgNavItems = computed(() => {
   const id = orgId.value;
   if (!id) return [];
@@ -347,6 +363,7 @@ const orgNavItems = computed(() => {
   if (hasOrgAccess.value) {
     items.push({ name: 'org-findings', params: { orgId: id }, label: 'Findings' });
     items.push({ name: 'org-assets',   params: { orgId: id }, label: 'Assets'   });
+    items.push({ name: 'org-reports',  params: { orgId: id }, label: 'Reports'  });
     if (!auth.isClient) {
       items.push({ name: 'org-workflows', params: { orgId: id }, label: 'Workflows' });
     }

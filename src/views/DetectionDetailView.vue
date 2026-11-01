@@ -428,6 +428,7 @@ onMounted(load);
               <i class="pi pi-server" style="color:var(--ares-accent-muted);" />
               <div style="flex:1;">
                 <p style="font-size:0.75rem; color:var(--ares-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Detected at</p>
+                <p v-if="asset.displayName" style="font-size:0.9rem; margin-top:0.1rem;">{{ asset.displayName }}</p>
                 <p style="font-family:monospace; font-size:0.9rem; margin-top:0.1rem;">{{ asset.identifier }}</p>
               </div>
               <span v-if="asset.code" style="font-family:monospace; font-size:0.75rem; color:var(--ares-text-muted);">{{ asset.code }}</span>

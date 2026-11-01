@@ -40,7 +40,7 @@ interface MergeRow {
 
 const rows = ref<MergeRow[]>([]);
 
-const FIRST_CLASS_KEYS = new Set(['identifier', 'hostnames', 'hostSubtype']);
+const FIRST_CLASS_KEYS = new Set(['identifier', 'hostnames', 'hostSubtype', 'displayName']);
 const LIST_EDITORS = new Set(['chip-list', 'url-list', 'hostname-list']);
 
 function parseMeta(raw: string | null): Record<string, unknown> {
@@ -56,6 +56,7 @@ function fieldValue(key: string, asset: Asset, meta: Record<string, unknown>): s
   if (key === 'identifier') return asset.identifier ?? '';
   if (key === 'hostnames') return asset.hostnames ?? [];
   if (key === 'hostSubtype') return asset.hostSubtype ?? '';
+  if (key === 'displayName') return asset.displayName ?? '';
   const raw = meta[key];
   if (Array.isArray(raw)) return raw.map((v) => String(v));
   if (raw === null || raw === undefined) return '';
@@ -82,7 +83,9 @@ function buildRows(): MergeRow[] {
 
   const built: MergeRow[] = [];
   for (const def of dataFieldsFor(props.target.type, combinedMeta)) {
-    if (def.editor === 'readonly') continue;
+    // The identifier row stays (pick source or target — never typed, except a host's Name);
+    // a web application's identifier follows its merged Base URLs instead.
+    if (def.editor === 'readonly' && !(def.key === 'identifier' && props.target.type !== 'web_application')) continue;
 
     const sourceValue = fieldValue(def.key, props.source, sourceMeta);
     const targetValue = fieldValue(def.key, props.target, targetMeta);
@@ -262,6 +265,8 @@ async function doMerge() {
                   @update:model-value="onCustomInput(row, $event ?? '')"
                 />
 
+                <span v-else-if="row.editor === 'readonly'" class="merge-result-readonly">{{ previewVal(row.value) }}</span>
+
                 <select
                   v-else-if="row.editor === 'select'"
                   class="merge-result-select"
@@ -308,6 +313,11 @@ async function doMerge() {
 </template>
 
 <style scoped>
+.merge-result-readonly {
+  font-family: monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
 .merge-dialog {
   display: flex;
   flex-direction: column;

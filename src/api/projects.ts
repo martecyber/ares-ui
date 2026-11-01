@@ -126,6 +126,10 @@ export const SCOPE_KINDS = [
   { label: 'iOS App',         value: 'ios_app'        },
   { label: 'Windows App',     value: 'windows_app'    },
   { label: 'Hardware',        value: 'hardware'       },
+  { label: 'Email',           value: 'email'          },
+  { label: 'Email Domain',    value: 'email_domain'   },
+  { label: 'System',          value: 'system'         },
+  { label: 'Directory',       value: 'directory'      },
   { label: 'Other',           value: 'other'          },
 ];
 
@@ -142,6 +146,10 @@ export const SCOPE_KIND_META: Record<string, { label: string; color: string }> =
   windows_app:     { label: 'Windows',  color: '#0078D4' }, // Windows blue
   hardware:        { label: 'Hardware', color: '#7C3AED' }, // violet-600
   text_contains:   { label: 'Text',     color: '#9333EA' }, // purple-600
+  email:           { label: 'Email',    color: '#DB2777' }, // pink-600
+  email_domain:    { label: '@Domain',  color: '#BE185D' }, // pink-700
+  system:          { label: 'System',   color: '#B45309' }, // amber-700
+  directory:       { label: 'Directory', color: '#92400E' }, // amber-800
   other:           { label: 'Other',    color: '#4B5563' }, // gray-600
 };
 
@@ -206,11 +214,23 @@ export interface MonitorStats {
   pendingIterationLabel: string | null;
   awaitingApproval: boolean;
   autoAdvanceIterations: boolean;
-  byIteration: Array<{ label: string; reported: number; resolved: number; openAtEnd: number }>;
+  byIteration: Array<{ label: string; startDate: string | null; endDate: string | null; reported: number; resolved: number; openAtEnd: number }>;
   /** Detections that entered each area during an iteration — a detection can count in more than
    *  one column if it transitioned through multiple areas within the same iteration (e.g.
    *  opened then closed in the same period counts for both). */
-  detectionsByIteration: Array<{ label: string; opened: number; escalated: number; closed: number }>;
+  detectionsByIteration: Array<{ label: string; startDate: string | null; endDate: string | null; opened: number; escalated: number; closed: number }>;
+}
+
+export interface ProjectIterationDto {
+  label: string;
+  plannedStart: string;
+  plannedEnd: string;
+  actualStart: string | null;
+  actualEnd: string | null;
+  effectiveEnd: string;
+  approvedAt: string | null;
+  /** closed | active | extended | future */
+  status: 'closed' | 'active' | 'extended' | 'future';
 }
 
 export function statusLabel(status: ProjectStatus | string): string {
@@ -306,13 +326,19 @@ export const projectsApi = {
       .then((r) => r.data);
   },
   addAssetManually(id: number, type: string, identifier: string, metadata?: Record<string, unknown>, hostSubtype?: string,
-                   hostnames?: string[]): Promise<{ id: number; code: string; type: string; identifier: string; created: boolean }> {
-    return apiClient.post(`/projects/${id}/assets/manual`, { type, identifier, metadata, hostSubtype, hostnames }).then((r) => r.data);
+                   hostnames?: string[], displayName?: string): Promise<{ id: number; code: string; type: string; identifier: string; created: boolean }> {
+    return apiClient.post(`/projects/${id}/assets/manual`, { type, identifier, metadata, hostSubtype, hostnames, displayName }).then((r) => r.data);
   },
   monitorStats(id: number) {
     return apiClient.get<MonitorStats>(`/projects/${id}/monitor-stats`).then((r) => r.data);
   },
   approveIteration(id: number) {
     return apiClient.post<Project>(`/projects/${id}/approve-iteration`).then(() => projectsApi.monitorStats(id));
+  },
+  listIterations(id: number) {
+    return apiClient.get<ProjectIterationDto[]>(`/projects/${id}/iterations`).then((r) => r.data);
+  },
+  updateIteration(id: number, label: string, body: { actualStart?: string; actualEnd?: string }) {
+    return apiClient.patch<ProjectIterationDto>(`/projects/${id}/iterations/${encodeURIComponent(label)}`, body).then((r) => r.data);
   },
 };

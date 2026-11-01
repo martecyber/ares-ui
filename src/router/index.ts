@@ -12,7 +12,7 @@ const CLIENT_ORG_BLOCKED_ROUTES = new Set(['org-detection-detail', 'org-workflow
 // org-project-detections/org-project-detection-detail are allowed here unconditionally —
 // the backend enforces Project.clientsCanViewDetections per-project (403s otherwise), and
 // the nav link itself is only shown when a project has opted in (see AppShell.vue).
-const CLIENT_PROJECT_ALLOWED_ROUTES = new Set(['org-project-findings', 'org-project-finding-detail', 'org-project-assets', 'org-project-asset-detail', 'org-project-reports', 'org-project-detections', 'org-project-detection-detail']);
+const CLIENT_PROJECT_ALLOWED_ROUTES = new Set(['org-project-findings', 'org-project-finding-detail', 'org-project-assets', 'org-project-asset-detail', 'org-project-reports', 'org-project-detections', 'org-project-detection-detail', 'org-reports', 'org-report-preview']);
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -94,6 +94,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'organization/:orgId/projects', name: 'org-projects', component: () => import('@/views/ProjectsView.vue') },
       { path: 'organization/:orgId/findings',    name: 'org-findings',    component: () => import('@/views/FindingsView.vue'), meta: { requiresOrgAccess: true } },
       { path: 'organization/:orgId/assets',      name: 'org-assets',      component: () => import('@/views/AssetsView.vue'),   meta: { requiresOrgAccess: true } },
+      { path: 'organization/:orgId/reports',     name: 'org-reports',         component: () => import('@/views/OrgReportsView.vue'),   meta: { requiresOrgAccess: true } },
+      { path: 'organization/:orgId/reports/:id', name: 'org-report-preview', component: () => import('@/views/ReportPreviewView.vue'), meta: { requiresOrgAccess: true } },
       { path: 'organization/:orgId/workflows', name: 'org-workflows', component: () => import('@/views/OrgWorkflowsView.vue'), meta: { requiresOrgAccess: true } },
       { path: 'organization/:orgId/workflows/:workflowId', name: 'org-workflow-editor', component: () => import('@/views/WorkflowEditorView.vue'), meta: { requiresOrgAccess: true } },
       { path: 'organization/:orgId/settings', name: 'org-settings', component: () => import('@/views/OrgSettingsView.vue'), meta: { requiresOrgAccess: true } },
