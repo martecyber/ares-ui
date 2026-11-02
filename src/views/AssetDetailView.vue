@@ -170,6 +170,7 @@ function scopeEntryKindLabel(kind: string) {
     ip: 'IP', cidr: 'CIDR',
     android_app: 'Android app', ios_app: 'iOS app',
     windows_app: 'Windows app', hardware: 'Hardware',
+    repository: 'Git repository', container_image: 'Container image',
   };
   return labels[kind] ?? kind;
 }

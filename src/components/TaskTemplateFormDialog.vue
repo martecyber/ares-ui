@@ -62,6 +62,8 @@ const ALL_SCOPE_KIND_OPTIONS = [
   { label: 'URL wildcards',    value: 'url_wildcard'    },
   { label: 'IPs',              value: 'ip'              },
   { label: 'CIDRs',            value: 'cidr'            },
+  { label: 'Git repositories', value: 'repository'      },
+  { label: 'Container images', value: 'container_image' },
 ];
 const scopeKinds = ref<string[]>([]);
 
@@ -72,6 +74,7 @@ const ALL_ASSET_TYPE_OPTIONS = [
   { label: 'Service',  value: 'service' },
   { label: 'Web app',  value: 'web_application' },
   { label: 'Endpoint', value: 'web_endpoint' },
+  { label: 'Software', value: 'software' },
 ];
 const assetTypes = ref<string[]>([]);
 const excludeValues = ref<string[]>([]);

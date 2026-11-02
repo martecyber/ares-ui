@@ -130,6 +130,8 @@ export const SCOPE_KINDS = [
   { label: 'Email Domain',    value: 'email_domain'   },
   { label: 'System',          value: 'system'         },
   { label: 'Directory',       value: 'directory'      },
+  { label: 'Git Repository',  value: 'repository'     },
+  { label: 'Container Image', value: 'container_image' },
   { label: 'Other',           value: 'other'          },
 ];
 
@@ -150,6 +152,8 @@ export const SCOPE_KIND_META: Record<string, { label: string; color: string }> =
   email_domain:    { label: '@Domain',  color: '#BE185D' }, // pink-700
   system:          { label: 'System',   color: '#B45309' }, // amber-700
   directory:       { label: 'Directory', color: '#92400E' }, // amber-800
+  repository:      { label: 'Repo',     color: '#334155' }, // slate-700
+  container_image: { label: 'Image',    color: '#0E7490' }, // cyan-700
   other:           { label: 'Other',    color: '#4B5563' }, // gray-600
 };
 
