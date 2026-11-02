@@ -12,6 +12,8 @@ export interface AqlFieldInfo {
   kind: string;
   operators: string[];
   allowedValues: string[];
+  /** Usable as a dashboard chart's "Group by" field. */
+  groupable?: boolean;
 }
 
 export interface AqlValidateResult {

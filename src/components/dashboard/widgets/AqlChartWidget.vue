@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { aqlAnd, aqlDateRange, aqlEquals, AQL_NONE_LABEL } from '@/utils/aqlClause';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Chart, ArcElement, BarElement, BarController, DoughnutController, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, type ChartData, type ChartOptions, type ActiveElement, type ChartEvent } from 'chart.js';
@@ -178,20 +179,25 @@ function bucketAql(rawLabel: string, series: string | null): string | null {
   let base: string;
   if (dateBucket.value === 'iteration') {
     if (entity.value !== 'finding') return null;
-    base = `iterationLabel == '${rawLabel.replace(/'/g, "\\'")}'`;
+    base = aqlEquals('iterationLabel', rawLabel);
   } else if (dateBucket.value) {
-    const end = addBucketWidth(rawLabel, dateBucket.value);
-    base = `${groupByField.value} >= '${rawLabel}' AND ${groupByField.value} < '${end}'`;
+    if (rawLabel === AQL_NONE_LABEL) {
+      base = aqlEquals(groupByField.value, rawLabel);
+    } else {
+      const start = new Date(rawLabel);
+      if (Number.isNaN(start.getTime())) return null;
+      base = aqlDateRange(groupByField.value, start, new Date(addBucketWidth(rawLabel, dateBucket.value)));
+    }
   } else {
     const value = groupByField.value === 'priority' ? (PRIORITY_RAW_TO_CODE[rawLabel] ?? rawLabel) : rawLabel;
-    base = `${groupByField.value} == '${value.replace(/'/g, "\\'")}'`;
+    base = aqlEquals(groupByField.value, value);
   }
-  let clause = aql.value ? `${aql.value} AND ${base}` : base;
+  let seriesClause: string | null = null;
   if (series !== null && seriesField.value) {
     const sValue = seriesField.value === 'priority' ? (PRIORITY_RAW_TO_CODE[series] ?? series) : series;
-    clause += ` AND ${seriesField.value} == '${sValue.replace(/'/g, "\\'")}'`;
+    seriesClause = aqlEquals(seriesField.value, sValue);
   }
-  return clause;
+  return aqlAnd(aql.value, base, seriesClause);
 }
 
 function goToBucket(rawLabel: string, series: string | null) {

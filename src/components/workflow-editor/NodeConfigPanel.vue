@@ -1038,9 +1038,21 @@ const contextVariableGroups = computed(() => [
 // typing "{{" autocompletes with whatever's actually resolvable via MessagingTemplate.render at
 // run time (AQL text is templated before it's parsed — see WorkflowRunService's countByAql/
 // runAssignVariableSource/executeConditionEntityMatch call sites).
+// Plus AQL's own context variables ({{now}}, iteration and SLA ones) for this workflow's scope —
+// WorkflowRunService keeps them through workflow templating and resolves them afterwards.
+const aqlContextVariables = ref<AqlVariableRef[]>([]);
+watch(() => [props.scopeKind, props.scopeId] as const, async ([kind, id]) => {
+  aqlContextVariables.value = await aqlApi.variables(
+    kind === 'project' ? id ?? null : null,
+    kind === 'organization' ? id ?? null : null,
+  );
+}, { immediate: true });
+
 const availableVariableRefs = computed<AqlVariableRef[]>(() => [
-  ...triggerContextVars.value, ...assignedVariables.value, ...stepOutputVars.value,
-].filter((i) => i.insertable !== false).map((i) => ({ ref: i.ref, label: i.label, type: i.type })));
+  ...[...triggerContextVars.value, ...assignedVariables.value, ...stepOutputVars.value]
+    .filter((i) => i.insertable !== false).map((i) => ({ ref: i.ref, label: i.label, type: i.type })),
+  ...aqlContextVariables.value,
+]);
 
 // What THIS node itself exports for whatever comes after it — same field-level detail as
 // stepOutputVars above, just scoped to this node's own id instead of an ancestor's.

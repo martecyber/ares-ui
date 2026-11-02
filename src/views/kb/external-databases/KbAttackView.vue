@@ -388,7 +388,7 @@ onMounted(() => {
     <!-- ══ TECHNIQUES SEARCH TAB ═══════════════════════════════════════════ -->
     <div v-else-if="tab === 'techniques'">
       <div style="margin-bottom:1rem;">
-        <QueryBar entity="attack" placeholder="Search by ID, name, description…" @search="onTechQuerySearch" />
+        <QueryBar entity="attackTechnique" placeholder="Search by ID, name, description…" @search="onTechQuerySearch" />
       </div>
 
       <p v-if="errTechniques" class="err-msg">{{ errTechniques }}</p>

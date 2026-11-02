@@ -108,7 +108,7 @@ watch(entity, async (e) => {
 }, { immediate: true });
 
 const groupableFieldOptions = computed(() =>
-  groupableFields.value.filter((f) => ['STRING', 'BOOLEAN', 'ENUM', 'PRIORITY', 'DATE'].includes(f.type)));
+  groupableFields.value.filter((f) => f.groupable && ['STRING', 'BOOLEAN', 'ENUM', 'PRIORITY', 'DATE'].includes(f.type)));
 
 // Drives the "Bucket by" granularity selector — only DATE-typed fields (plain columns like
 // createdAt, or a status.<name> transition date) support date_trunc bucketing server-side; every

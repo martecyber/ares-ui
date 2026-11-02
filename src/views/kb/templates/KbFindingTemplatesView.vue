@@ -178,7 +178,7 @@ onMounted(load);
     </KbImportDialog>
 
     <div style="margin-bottom:1rem;">
-      <QueryBar entity="finding_template" placeholder="Search title…" @search="onSearch" />
+      <QueryBar entity="findingTemplate" placeholder="Search title…" @search="onSearch" />
     </div>
 
     <div v-if="err" class="ares-alert ares-alert--error" style="margin-bottom:0.75rem;">{{ err }}</div>

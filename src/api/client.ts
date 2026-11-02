@@ -9,7 +9,7 @@ const baseURL = apiHost + '/api/v1';
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL,
-  // Deep nested AQL relation queries (e.g. exploits' cves.cwes.relatedCapecs.id) can legitimately
+  // Deep nested AQL relation queries (e.g. exploits' cve.cwe.relatedCapec.id) can legitimately
   // take longer than a typical request even after the backend-side query optimization (V159) —
   // 30s was tight enough that one of these would routinely hit it, and a plain axios timeout looks
   // identical to the backend being down (no `error.response` at all — see isBackendUnreachable

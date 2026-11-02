@@ -47,10 +47,10 @@ export const DASHBOARD_LIST_SORT_FIELDS_BY_ENTITY: Record<string, { value: strin
   detection: [
     { value: 'createdAt', label: 'Created' },
     { value: 'lastSeen', label: 'Last seen' },
-    { value: 'severity', label: 'Severity' },
+    { value: 'priority', label: 'Priority' },
     { value: 'status', label: 'Status' },
     { value: 'title', label: 'Title' },
-    { value: 'source', label: 'Source' },
+    { value: 'sourceType', label: 'Source' },
   ],
 };
 

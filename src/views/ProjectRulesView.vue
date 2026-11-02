@@ -553,7 +553,7 @@ const activeCount = computed(() => rules.value.filter((r) => r.enabled).length);
           </div>
           <div class="ares-form-field">
             <label class="ares-form-label">Only when finding matches (optional AQL)</label>
-            <AqlFilterInput v-model="erAql" entity="finding" :project-id="engId" placeholder="severity == 'critical'" />
+            <AqlFilterInput v-model="erAql" entity="finding" :project-id="engId" placeholder='priority == P0' />
             <div style="font-size:0.75rem; color:var(--ares-text-muted); margin-top:0.3rem;">
               Leave empty to always apply this rule. Several rules can target the same or different
               placements — each is evaluated independently when a finding is reported by email.
