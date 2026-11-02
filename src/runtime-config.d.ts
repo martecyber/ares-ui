@@ -8,6 +8,9 @@ interface AresRuntimeConfig {
 }
 
 declare global {
+  /** package.json version of this UI build (vite.config.ts `define`). */
+  const __ARES_UI_VERSION__: string;
+
   interface Window {
     ARES_RUNTIME_CONFIG?: AresRuntimeConfig;
   }

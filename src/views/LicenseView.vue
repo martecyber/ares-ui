@@ -9,7 +9,7 @@ import Button from 'primevue/button';
 import Message from 'primevue/message';
 import AresBadge from '@/components/AresBadge.vue';
 import { licenseApi, type LicenseInfo } from '@/api/license';
-import { versionsApi, type Versions } from '@/api/versions';
+import { versionsApi, uiVersion, type Versions } from '@/api/versions';
 
 const info = ref<LicenseInfo | null>(null);
 const loadError = ref(false);
@@ -36,7 +36,7 @@ async function toggleFullText() {
 interface ComponentTab { key: string; name: string; description: string; sourceUrl: string; version: string | null; }
 const components = computed<ComponentTab[]>(() => !info.value ? [] : [
   { key: 'core', name: 'ares-core', description: 'Backend REST API', sourceUrl: info.value.sourceUrlCore, version: versions.value?.api ?? null },
-  { key: 'ui', name: 'ares-ui', description: 'Web UI', sourceUrl: info.value.sourceUrlUi, version: versions.value?.ui ?? null },
+  { key: 'ui', name: 'ares-ui', description: 'Web UI', sourceUrl: info.value.sourceUrlUi, version: uiVersion },
   { key: 'agent', name: 'ares-agent', description: 'Agent that runs scans on enrolled machines', sourceUrl: info.value.sourceUrlAgent, version: versions.value?.agent ?? null },
   { key: 'cli', name: 'ares-cli', description: 'Command-line interface', sourceUrl: info.value.sourceUrlCli, version: versions.value?.cli ?? null },
 ]);

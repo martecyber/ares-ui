@@ -8,7 +8,7 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
 import { organizationsApi, type Organization } from '@/api/organizations';
 import { projectsApi, isAssessment, type Project } from '@/api/projects';
 import { profileApi } from '@/api/profile';
-import { versionsApi, type Versions } from '@/api/versions';
+import { versionsApi, uiVersion, type Versions } from '@/api/versions';
 import { loadDynamicIcons } from '@/utils/tool-icons';
 import { ADMIN_ROUTES, KB_ROUTES } from '@/router/nav-groups';
 import Menu from 'primevue/menu';
@@ -794,7 +794,7 @@ watch(mobileNavOpen, (open) => {
         <div style="margin-top:auto; padding:0.75rem; border-top:1px solid var(--ares-border); font-size:0.68rem; color:var(--ares-text-muted); line-height:1.5;">
           <div>Ares ASM · <RouterLink :to="{ name: 'license' }" style="color:inherit;">© {{ new Date().getFullYear() }} Martín Romera</RouterLink></div>
           <div v-if="versions">api {{ versions.api }}</div>
-          <div v-if="versions">ui {{ versions.ui }}</div>
+          <div>ui {{ uiVersion }}</div>
         </div>
       </aside>
 
