@@ -295,6 +295,7 @@ function triggerEventContextItems(eventCode: string | undefined): ContextVarItem
   const base: ContextVarItem[] = [
     { ref: 'trigger.eventCode', display: '{{trigger.eventCode}}', label: 'Event code', type: 'string', description: '' },
     { ref: 'trigger.entityId', display: '{{trigger.entityId}}', label: 'Entity id', description: '' },
+    { ref: 'trigger.url', display: '{{trigger.url}}', label: 'Link to entity in Ares', type: 'string', description: 'Deep link to the entity that fired the event (empty for deleted entities; needs ARES_PUBLIC_URL for an absolute URL)' },
   ];
   const def = EVENT_CODE_CATALOG.find((e) => e.code === eventCode);
   const entityType = entityTypeOfEventCode(eventCode);

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
+import InputText from 'primevue/inputtext';
 import { adminSettingsApi } from '@/api/admin-settings';
 
 // Comprehensive list of IANA timezone identifiers
@@ -33,6 +34,7 @@ const TIMEZONES = [
 ];
 
 const timezone = ref('');
+const publicUrl = ref('');
 const saving = ref(false);
 const loading = ref(true);
 const successMsg = ref<string | null>(null);
@@ -44,6 +46,7 @@ async function load() {
   try {
     const s = await adminSettingsApi.get();
     timezone.value = s.timezone;
+    publicUrl.value = s.publicUrl ?? '';
   } catch (e: any) {
     err.value = e?.response?.data?.message ?? e.message ?? 'Failed to load settings.';
   } finally {
@@ -56,11 +59,12 @@ async function save() {
   err.value = null;
   successMsg.value = null;
   try {
-    const s = await adminSettingsApi.updateTimezone(timezone.value);
+    const s = await adminSettingsApi.update({ timezone: timezone.value, publicUrl: publicUrl.value.trim() });
     timezone.value = s.timezone;
-    successMsg.value = 'Timezone saved.';
+    publicUrl.value = s.publicUrl ?? '';
+    successMsg.value = 'Settings saved.';
   } catch (e: any) {
-    err.value = e?.response?.data?.message ?? e.message ?? 'Failed to save timezone.';
+    err.value = e?.response?.data?.message ?? e.message ?? 'Failed to save settings.';
   } finally {
     saving.value = false;
   }
@@ -97,6 +101,18 @@ onMounted(load);
         />
         <p style="font-size:0.75rem; color:var(--ares-text-muted); margin-top:0.35rem;">
           Used for scheduled task time windows and cron expressions across all projects.
+        </p>
+      </div>
+
+      <div>
+        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.4rem; color:var(--ares-text-muted);">
+          Public URL
+        </label>
+        <InputText v-model="publicUrl" placeholder="https://ares.example.com" style="width:100%;" />
+        <p style="font-size:0.75rem; color:var(--ares-text-muted); margin-top:0.35rem;">
+          Address users reach Ares at. Used to build links to findings, detections, assets, etc. in
+          workflow notifications (<code v-pre>{{trigger.url}}</code>) and in agent installers. Leave empty to
+          use the ARES_PUBLIC_URL environment value.
         </p>
       </div>
 
